@@ -2109,11 +2109,17 @@ document.getElementById("person-tabs").addEventListener("click", e => {
 document.querySelectorAll(".tab-name-input").forEach(inp => {
   inp.addEventListener("input", () => {
     const p = +inp.dataset.p;
-    personNames[p] = inp.value || (p === 0 ? "我" : "TA");
-    saveNames();
-    // update avatar
+    const name = inp.value;
+    personNames[p] = name || (p === 0 ? "我" : "TA");
     const tab = document.querySelector(`.person-tab[data-p="${p}"]`);
-    if (tab) tab.querySelector(".tab-avatar").textContent = personNames[p].charAt(0).toUpperCase();
+    if (tab) tab.querySelector(".tab-avatar").textContent = (name || (p === 0 ? "我" : "TA")).charAt(0).toUpperCase();
+  });
+  inp.addEventListener("blur", () => {
+    const p = +inp.dataset.p;
+    const fallback = p === 0 ? "我" : "TA";
+    if (!inp.value) inp.value = fallback;
+    personNames[p] = inp.value;
+    saveNames();
   });
   // prevent tab switch when clicking name input
   inp.addEventListener("click", e => e.stopPropagation());
