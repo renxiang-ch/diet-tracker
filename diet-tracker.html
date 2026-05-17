@@ -1,0 +1,3139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>饮食记录</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f2f5;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0 8px;
+    }
+
+    header h1 { font-size: 17px; font-weight: 700; color: #111; }
+
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .date-nav button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 16px;
+      color: #555;
+      transition: background 0.15s;
+      line-height: 1.4;
+    }
+
+    .date-nav button:hover { background: #f5f5f5; }
+    .date-nav button:disabled { opacity: 0.4; cursor: default; }
+
+    .date-display {
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 115px;
+      text-align: center;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      background: #fafafa;
+    }
+
+    #date-input {
+      display: none;
+      font-size: 14px;
+      padding: 4px 8px;
+      border: 1px solid #4a90d9;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    /* ===== PERSON TABS ===== */
+    .person-tabs {
+      display: flex;
+      gap: 0;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .person-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #888;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .person-tab:hover { color: #444; }
+
+    .person-tab.active {
+      color: #2d7dd2;
+      border-bottom-color: #2d7dd2;
+    }
+
+    .tab-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .person-tab:nth-child(1) .tab-avatar { background: #5c8ee0; }
+    .person-tab:nth-child(2) .tab-avatar { background: #e07c5c; }
+
+    .tab-name-input {
+      border: none;
+      outline: none;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      width: 60px;
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .tab-name-input:focus { cursor: text; }
+
+    /* ===== LAYOUT ===== */
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+
+    /* ===== MEAL SECTION ===== */
+    .meal-section {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e4e4e4;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .meal-header {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      background: #fafafa;
+      border-bottom: 1px solid #efefef;
+      gap: 8px;
+    }
+
+    .meal-icon { font-size: 15px; }
+    .meal-title { font-size: 13px; font-weight: 600; color: #444; }
+    .meal-summary { font-size: 12px; color: #aaa; margin-left: auto; }
+
+    /* ===== TABLE ===== */
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      font-size: 11px;
+      font-weight: 600;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 6px 8px;
+      text-align: right;
+      border-bottom: 1px solid #f0f0f0;
+      background: #fafafa;
+    }
+
+    thead th:first-child { text-align: left; }
+    thead th.th-food   { width: 32%; text-align: left; }
+    thead th.th-weight { width: 9%; }
+    thead th.th-unit   { width: 4%; }
+    thead th.th-cal    { width: 11%; }
+    thead th.th-prot   { width: 11%; color: #b0c4de; }
+    thead th.th-carb   { width: 11%; color: #c4b0a0; }
+    thead th.th-fat    { width: 11%; color: #b0c4b0; }
+    thead th.th-del    { width: 6%; }
+
+    tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafcff; }
+
+    td { padding: 5px 6px; vertical-align: middle; }
+
+    td input[type="text"], td input[type="number"] {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #222;
+      padding: 3px 4px;
+      border-radius: 4px;
+      outline: none;
+      transition: background 0.15s;
+      text-align: right;
+    }
+
+    td input[type="text"] { text-align: left; }
+    td input:focus { background: #eef5ff; }
+
+    /* per-100g editable inputs inside table cells */
+    .nut-input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      text-align: right;
+      padding: 3px 4px;
+      border-radius: 4px;
+      outline: none;
+      transition: background 0.15s;
+      color: #555;
+    }
+
+    .nut-input:focus { background: #eef5ff; }
+    .nut-input::placeholder { color: #ddd; }
+    .nut-input.prot { color: #5a7fb5; }
+    .nut-input.carb { color: #b5835a; }
+    .nut-input.fat  { color: #5a9b5a; }
+
+    .th-unit-label { font-size: 9px; opacity: 0.7; }
+
+    /* custom food badge */
+    .food-cell-wrap { position: relative; display: flex; align-items: center; gap: 4px; }
+    .custom-badge {
+      font-size: 10px;
+      color: #5a9b6a;
+      background: #edfaf1;
+      border: 1px solid #c3e6cb;
+      border-radius: 4px;
+      padding: 1px 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .custom-badge.builtin { color: #888; background: #f5f5f5; border-color: #e0e0e0; }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ddd;
+      font-size: 15px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+
+    .delete-btn:hover { color: #e44; background: #fff0f0; }
+
+    .add-row-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 16px;
+      width: 100%;
+      background: none;
+      border: none;
+      border-top: 1px dashed #ebebeb;
+      color: #bbb;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .add-row-btn:hover { background: #f7f7f7; color: #777; }
+
+    /* ===== AUTOCOMPLETE ===== */
+    .suggestion-box {
+      position: fixed;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      z-index: 200;
+      max-height: 240px;
+      overflow-y: auto;
+      min-width: 220px;
+    }
+
+    .suggestion-item {
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .suggestion-item:hover, .suggestion-item.active { background: #f0f6ff; }
+
+    .sug-right { display: flex; gap: 8px; align-items: center; }
+    .sug-cal { color: #999; font-size: 12px; white-space: nowrap; }
+    .sug-macros { font-size: 11px; color: #ccc; white-space: nowrap; }
+
+    /* saved-foods card inside chat */
+    .saved-card {
+      max-width: 78%;
+      background: #edfaf3;
+      border: 1px solid #b7e4c7;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .saved-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .saved-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #3d8f5a;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .view-lib-btn {
+      font-size: 11px;
+      color: #3d8f5a;
+      background: none;
+      border: 1px solid #9dd4b4;
+      border-radius: 5px;
+      padding: 2px 9px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .view-lib-btn:hover { background: #c6ead5; }
+
+    .saved-food-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 4px 0;
+      border-bottom: 1px solid #cdeedd;
+      gap: 8px;
+    }
+
+    .saved-food-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .saved-food-name { font-weight: 600; color: #222; }
+    .saved-food-note { font-size: 11px; color: #aaa; margin-left: 4px; }
+    .saved-food-macros { font-size: 11px; color: #777; white-space: nowrap; }
+
+    /* ===== NOTE ===== */
+    .note-wrap { margin-bottom: 12px; }
+
+    .note-input {
+      width: 100%;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #666;
+      outline: none;
+      resize: none;
+      font-family: inherit;
+      transition: border 0.15s;
+      background: #fff;
+    }
+
+    .note-input:focus { border-color: #4a90d9; }
+
+    /* ===== SUMMARY ===== */
+    .summary-card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e4e4e4;
+      padding: 18px 20px;
+    }
+
+    .summary-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .summary-label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .summary-big { font-size: 32px; font-weight: 700; color: #111; line-height: 1; }
+    .summary-big span { font-size: 13px; font-weight: 400; color: #aaa; margin-left: 2px; }
+
+    .cal-bar-wrap { flex: 1; min-width: 180px; margin-top: 4px; }
+    .cal-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: #ccc; margin-bottom: 5px; }
+    .cal-bar { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+    .cal-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #5a9b6a, #62b073); transition: width 0.4s ease; }
+    .cal-bar-fill.over { background: linear-gradient(90deg, #d96060, #e07070); }
+
+    .macro-bars { display: flex; gap: 16px; flex-wrap: wrap; }
+
+    .macro-bar-group {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .macro-bar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .macro-name { font-size: 12px; font-weight: 600; }
+    .macro-name.prot { color: #5a7fb5; }
+    .macro-name.carb { color: #b5835a; }
+    .macro-name.fat  { color: #5a9b5a; }
+
+    .macro-val { font-size: 13px; font-weight: 600; color: #333; }
+    .macro-val span { font-size: 11px; font-weight: 400; color: #aaa; }
+
+    .macro-track { height: 5px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+    .macro-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+    .macro-fill.prot { background: #7a9fd5; }
+    .macro-fill.carb { background: #d5a37a; }
+    .macro-fill.fat  { background: #7abd7a; }
+
+    .meal-cal-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #f5f5f5;
+    }
+
+    .meal-stat {
+      flex: 1;
+      min-width: 70px;
+      text-align: center;
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 8px 6px;
+    }
+
+    .meal-stat-icon { font-size: 14px; margin-bottom: 2px; }
+    .meal-stat-name { font-size: 10px; color: #bbb; margin-bottom: 2px; }
+    .meal-stat-val { font-size: 15px; font-weight: 600; color: #555; }
+    .meal-stat-val span { font-size: 10px; font-weight: 400; color: #bbb; }
+
+    /* ===== MODE TABS ===== */
+    .mode-tabs {
+      display: flex;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .mode-tab {
+      padding: 9px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #999;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s;
+      user-select: none;
+    }
+
+    .mode-tab:hover { color: #555; }
+    .mode-tab.active { color: #2d7dd2; border-bottom-color: #2d7dd2; }
+
+    /* ===== CLOUD SYNC BUTTON ===== */
+    .cloud-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 4px 6px; border-radius: 6px;
+      font-size: 18px; line-height: 1;
+      transition: background 0.15s;
+    }
+    .cloud-btn:hover { background: #f0f2f5; }
+    .sync-dot { font-size: 16px; }
+    .sync-dot[data-status="off"]     { color: #bbb; }
+    .sync-dot[data-status="syncing"] { color: #f5a623; }
+    .sync-dot[data-status="synced"]  { color: #27ae60; }
+    .sync-dot[data-status="error"]   { color: #e74c3c; }
+
+    /* ===== CLOUD MODAL ===== */
+    .cloud-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+    }
+    .cloud-modal {
+      background: #fff; border-radius: 14px;
+      width: 480px; max-width: calc(100vw - 32px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      overflow: hidden;
+    }
+    .cloud-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid #eee;
+      font-weight: 600; font-size: 15px;
+    }
+    .cloud-modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 16px; color: #999; padding: 2px 6px;
+    }
+    .cloud-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .cloud-hint { font-size: 13px; color: #666; line-height: 1.5; }
+    .cloud-label { font-size: 13px; font-weight: 600; color: #444; margin-top: 4px; }
+    .cloud-input {
+      width: 100%; padding: 9px 12px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 13px; font-family: monospace;
+    }
+    .cloud-input:focus { outline: none; border-color: #2d7dd2; }
+    .cloud-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cloud-connect-btn {
+      background: #2d7dd2; color: #fff; border: none;
+      border-radius: 8px; padding: 9px 18px; font-size: 14px;
+      font-weight: 600; cursor: pointer;
+    }
+    .cloud-connect-btn:hover { background: #2368b8; }
+    .cloud-disconnect-btn {
+      background: #f5f5f5; color: #666; border: none;
+      border-radius: 8px; padding: 9px 18px; font-size: 14px; cursor: pointer;
+    }
+    .cloud-disconnect-btn:hover { background: #eee; }
+    .cloud-push-btn {
+      background: #f5f5f5; color: #444; border: none;
+      border-radius: 8px; padding: 9px 18px; font-size: 14px; cursor: pointer;
+    }
+    .cloud-push-btn:hover { background: #e8f4fd; color: #2d7dd2; }
+    .cloud-status-msg { font-size: 13px; min-height: 18px; }
+    .cloud-status-msg.ok  { color: #27ae60; }
+    .cloud-status-msg.err { color: #e74c3c; }
+    .cloud-sql-hint {
+      background: #f8f9fa; border-radius: 8px;
+      padding: 12px; font-size: 12px; color: #555; line-height: 1.6;
+    }
+    .cloud-sql {
+      background: #1e1e2e; color: #cdd6f4;
+      border-radius: 6px; padding: 10px; margin-top: 8px;
+      font-size: 11px; overflow-x: auto; white-space: pre;
+    }
+
+    /* ===== AI CHAT ===== */
+    #ai-panel {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 100px);
+    }
+
+    .api-key-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+    }
+
+    .api-key-bar label { font-size: 12px; color: #aaa; white-space: nowrap; }
+
+    .api-key-bar input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      color: #333;
+      font-family: monospace;
+      background: transparent;
+    }
+
+    .api-key-bar button {
+      font-size: 12px;
+      padding: 4px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #f5f5f5;
+      cursor: pointer;
+      color: #555;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .api-key-bar button:hover { background: #e8e8e8; }
+    .api-key-bar .key-status { font-size: 11px; color: #5a9b6a; white-space: nowrap; }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .chat-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: #ccc;
+      font-size: 14px;
+      gap: 8px;
+    }
+
+    .chat-empty .chat-empty-icon { font-size: 36px; }
+
+    .bubble-wrap { display: flex; gap: 8px; align-items: flex-start; }
+    .bubble-wrap.user { flex-direction: row-reverse; }
+
+    .bubble-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin-top: 2px;
+    }
+
+    .bubble-wrap.user .bubble-avatar { background: #2d7dd2; color: #fff; font-size: 11px; font-weight: 700; }
+    .bubble-wrap.ai .bubble-avatar { background: #10a37f; color: #fff; }
+
+    .bubble {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .bubble-wrap.user .bubble { background: #2d7dd2; color: #fff; border-bottom-right-radius: 4px; }
+    .bubble-wrap.ai  .bubble { background: #f5f5f5; color: #222; border-bottom-left-radius: 4px; }
+
+    .bubble img { max-width: 220px; border-radius: 8px; margin-top: 6px; display: block; }
+
+    .bubble-wrap.ai .bubble strong { color: #2d7dd2; }
+
+    .chat-input-area {
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #img-preview-bar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px 0;
+      flex-wrap: wrap;
+    }
+
+    .img-thumb-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .img-thumb {
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .img-thumb-del {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #e44;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    #chat-text {
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      font-size: 14px;
+      font-family: inherit;
+      padding: 12px 14px;
+      color: #222;
+      background: transparent;
+      min-height: 72px;
+      max-height: 160px;
+    }
+
+    .chat-toolbar {
+      display: flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-top: 1px solid #f0f0f0;
+      gap: 8px;
+    }
+
+    .upload-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: #888;
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+
+    .upload-label:hover { background: #f5f5f5; color: #444; }
+
+    #send-btn {
+      margin-left: auto;
+      background: #2d7dd2;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    #send-btn:hover { background: #2266b5; }
+    #send-btn:disabled { background: #aaa; cursor: default; }
+
+    .typing-dot {
+      display: inline-block;
+      animation: blink 1.2s infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+    /* ===== FOOD LIBRARY ===== */
+    #lib-panel {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+
+    .lib-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .lib-search {
+      flex: 1;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+      transition: border 0.15s;
+    }
+
+    .lib-search:focus { border-color: #4a90d9; }
+
+    .lib-add-btn {
+      background: #2d7dd2;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .lib-add-btn:hover { background: #2266b5; }
+
+    .lib-card {
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .lib-table { width: 100%; border-collapse: collapse; }
+
+    .lib-table thead th {
+      font-size: 11px;
+      font-weight: 600;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 8px 10px;
+      text-align: right;
+      border-bottom: 1px solid #f0f0f0;
+      background: #fafafa;
+    }
+
+    .lib-table thead th:first-child { text-align: left; width: 30%; }
+    .lib-table thead th.col-unit { width: 7%; }
+    .lib-table thead th.col-num  { width: 12%; }
+    .lib-table thead th.col-del  { width: 6%; }
+
+    .lib-table tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.1s; }
+    .lib-table tbody tr:last-child { border-bottom: none; }
+    .lib-table tbody tr:hover { background: #fafcff; }
+
+    .lib-table td { padding: 5px 8px; vertical-align: middle; }
+
+    .lib-input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #333;
+      padding: 4px 4px;
+      border-radius: 4px;
+      outline: none;
+      transition: background 0.15s;
+      text-align: right;
+    }
+
+    .lib-input:focus { background: #eef5ff; }
+    .lib-input.name-input { text-align: left; font-weight: 500; }
+    .lib-input.prot { color: #5a7fb5; }
+    .lib-input.carb { color: #b5835a; }
+    .lib-input.fat  { color: #5a9b5a; }
+
+    .lib-unit-select {
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      color: #aaa;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+      text-align: right;
+    }
+
+    .lib-del-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ddd;
+      font-size: 15px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+
+    .lib-del-btn:hover { color: #e44; background: #fff0f0; }
+
+    .lib-empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: #ccc;
+      font-size: 14px;
+    }
+
+    .lib-count {
+      font-size: 12px;
+      color: #aaa;
+      margin-left: 4px;
+    }
+
+    /* ===== FITNESS PLAN ===== */
+    #fitness-panel {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+
+    .fit-section {
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+
+    .fit-section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 14px;
+    }
+
+    .goals-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .goal-item {
+      flex: 1;
+      min-width: 110px;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+
+    .goal-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .goal-inp-wrap { display: flex; align-items: baseline; gap: 4px; }
+
+    .goal-inp {
+      flex: 1;
+      width: 0;
+      border: none;
+      background: transparent;
+      font-size: 22px;
+      font-weight: 700;
+      color: #222;
+      outline: none;
+    }
+
+    .goal-inp-unit { font-size: 12px; color: #bbb; white-space: nowrap; }
+
+    /* week nav */
+    .fit-week-header { display: flex; align-items: center; margin-bottom: 16px; }
+
+    .week-nav-fit { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+    .week-nav-fit button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-size: 16px;
+      color: #555;
+      line-height: 1.4;
+      transition: background 0.15s;
+    }
+
+    .week-nav-fit button:hover { background: #f5f5f5; }
+    .week-nav-fit button:disabled { opacity: 0.3; cursor: default; }
+
+    #week-label-fit {
+      font-size: 14px;
+      font-weight: 500;
+      color: #444;
+      min-width: 150px;
+      text-align: center;
+    }
+
+    /* weight row */
+    .weight-block-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .weight-row { display: flex; gap: 6px; margin-bottom: 18px; }
+
+    .weight-day-col { flex: 1; text-align: center; }
+    .weight-day-name { font-size: 12px; font-weight: 600; color: #999; margin-bottom: 1px; }
+    .weight-day-date { font-size: 10px; color: #ccc; margin-bottom: 5px; }
+
+    .weight-day-input {
+      width: 100%;
+      text-align: center;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      padding: 5px 2px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      outline: none;
+      appearance: textfield;
+      -moz-appearance: textfield;
+      transition: border 0.15s;
+    }
+
+    .weight-day-input::-webkit-outer-spin-button,
+    .weight-day-input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+    .weight-day-input:focus { border-color: #4a90d9; }
+    .weight-day-input.today { border-color: #a0c4f0; background: #f0f7ff; }
+    .weight-day-unit { font-size: 10px; color: #ddd; margin-top: 2px; }
+
+    /* charts */
+    .chart-area {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .chart-block {
+      background: #fafafa;
+      border: 1px solid #eeeeee;
+      border-radius: 8px;
+      padding: 12px 10px 6px;
+    }
+
+    .chart-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 8px;
+    }
+
+    canvas { display: block; width: 100%; }
+
+    /* achievement table */
+    .achieve-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #bbb;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .achieve-table-wrap { overflow-x: auto; margin-bottom: 14px; }
+
+    .achieve-table { width: 100%; border-collapse: collapse; }
+
+    .achieve-table th {
+      font-size: 11px;
+      color: #ccc;
+      font-weight: 600;
+      padding: 5px 6px;
+      text-align: center;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .achieve-table th.ach-row-label { text-align: left; min-width: 60px; }
+    .achieve-table td.ach-row-label { text-align: left; font-size: 12px; color: #666; font-weight: 600; padding: 6px 6px; white-space: nowrap; }
+    .achieve-table td { text-align: center; padding: 5px 4px; border-bottom: 1px solid #f7f7f7; }
+
+    .ach-pip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .ach-pip.good { background: #edfaf1; color: #5a9b6a; }
+    .ach-pip.over { background: #fef0f0; color: #e06060; }
+    .ach-pip.low  { background: #fef8e7; color: #c09030; }
+    .ach-pip.none { background: transparent; color: #ddd; font-size: 13px; }
+
+    /* summary box */
+    .weekly-summary-box {
+      background: #f7faff;
+      border: 1px solid #d8e8f8;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.8;
+    }
+
+    .summary-stat { display: inline-block; font-weight: 600; color: #2d7dd2; }
+    .summary-stat.good { color: #5a9b6a; }
+    .summary-stat.warn { color: #c09030; }
+
+    /* range selector */
+    .range-btns { display: flex; gap: 5px; margin-left: auto; }
+
+    .range-btn {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 4px 11px;
+      font-size: 12px;
+      color: #999;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .range-btn:hover { background: #f5f5f5; color: #555; }
+    .range-btn.active { background: #2d7dd2; border-color: #2d7dd2; color: #fff; }
+
+    /* today weight quick entry */
+    .today-weight-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 10px 14px;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 8px;
+    }
+
+    .today-weight-row label { font-size: 13px; font-weight: 600; color: #666; }
+
+    .today-weight-row input {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #333;
+      outline: none;
+      width: 80px;
+      text-align: center;
+      -moz-appearance: textfield;
+      appearance: textfield;
+      transition: border 0.15s;
+    }
+
+    .today-weight-row input:focus { border-color: #4a90d9; }
+    .today-weight-row input::-webkit-outer-spin-button,
+    .today-weight-row input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+    .today-weight-row span { font-size: 13px; color: #aaa; }
+    .today-weight-row .today-date { font-size: 12px; color: #bbb; margin-left: auto; }
+
+    /* weight trend chart taller */
+    #weight-trend-chart { display: block; width: 100%; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 620px) {
+      thead th.th-prot, thead th.th-carb, thead th.th-fat { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <h1>🥗 饮食记录</h1>
+    <div class="date-nav">
+      <button id="prev-day">‹</button>
+      <div class="date-display" id="date-label"></div>
+      <input type="date" id="date-input">
+      <button id="next-day">›</button>
+    </div>
+    <button id="cloud-btn" class="cloud-btn" title="云同步设置">
+      <span id="sync-dot" class="sync-dot" data-status="off">☁</span>
+    </button>
+  </div>
+  <div class="mode-tabs">
+    <div class="mode-tab active" data-mode="diary">📋 饮食日记</div>
+    <div class="mode-tab" data-mode="ai">🤖 AI 估算</div>
+    <div class="mode-tab" data-mode="lib">📚 食物库<span class="lib-count" id="lib-tab-count"></span></div>
+    <div class="mode-tab" data-mode="fitness">💪 饮食计划</div>
+  </div>
+  <div class="person-tabs" id="person-tabs">
+    <div class="person-tab active" data-p="0">
+      <div class="tab-avatar">我</div>
+      <input class="tab-name-input" type="text" data-p="0" value="我" maxlength="8">
+    </div>
+    <div class="person-tab" data-p="1">
+      <div class="tab-avatar">TA</div>
+      <input class="tab-name-input" type="text" data-p="1" value="TA" maxlength="8">
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div id="meals-container"></div>
+  <div class="note-wrap">
+    <textarea class="note-input" id="note-input" rows="2" placeholder="今日备注（运动、感受等）…"></textarea>
+  </div>
+  <div class="summary-card" id="summary-card">
+    <div class="summary-top">
+      <div class="summary-cal-block">
+        <div class="summary-label">今日热量</div>
+        <div class="summary-big" id="total-cal">0 <span>kcal</span></div>
+      </div>
+      <div class="cal-bar-wrap">
+        <div class="cal-bar-labels">
+          <span>0</span><span id="goal-label">目标 2000</span><span>2500</span>
+        </div>
+        <div class="cal-bar"><div class="cal-bar-fill" id="cal-bar-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="macro-bars">
+      <div class="macro-bar-group">
+        <div class="macro-bar-header">
+          <span class="macro-name prot">蛋白质</span>
+          <span class="macro-val" id="total-prot">0 <span>g</span></span>
+        </div>
+        <div class="macro-track"><div class="macro-fill prot" id="fill-prot" style="width:0%"></div></div>
+      </div>
+      <div class="macro-bar-group">
+        <div class="macro-bar-header">
+          <span class="macro-name carb">碳水化合物</span>
+          <span class="macro-val" id="total-carb">0 <span>g</span></span>
+        </div>
+        <div class="macro-track"><div class="macro-fill carb" id="fill-carb" style="width:0%"></div></div>
+      </div>
+      <div class="macro-bar-group">
+        <div class="macro-bar-header">
+          <span class="macro-name fat">脂肪</span>
+          <span class="macro-val" id="total-fat">0 <span>g</span></span>
+        </div>
+        <div class="macro-track"><div class="macro-fill fat" id="fill-fat" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="meal-cal-row" id="meal-breakdown"></div>
+  </div>
+</div>
+
+<div id="suggestion-box" class="suggestion-box" style="display:none"></div>
+
+<!-- FITNESS PLAN PANEL -->
+<div id="fitness-panel" style="display:none">
+
+  <!-- Daily goals -->
+  <div class="fit-section">
+    <div class="fit-section-title">📌 每日目标</div>
+    <div class="goals-grid">
+      <div class="goal-item">
+        <label class="goal-label">热量</label>
+        <div class="goal-inp-wrap">
+          <input class="goal-inp" type="number" id="fit-goal-cal" min="0" placeholder="2000">
+          <span class="goal-inp-unit">kcal</span>
+        </div>
+      </div>
+      <div class="goal-item">
+        <label class="goal-label" style="color:#5a7fb5">蛋白质</label>
+        <div class="goal-inp-wrap">
+          <input class="goal-inp" type="number" id="fit-goal-prot" min="0" placeholder="75">
+          <span class="goal-inp-unit">g</span>
+        </div>
+      </div>
+      <div class="goal-item">
+        <label class="goal-label" style="color:#b5835a">碳水</label>
+        <div class="goal-inp-wrap">
+          <input class="goal-inp" type="number" id="fit-goal-carb" min="0" placeholder="250">
+          <span class="goal-inp-unit">g</span>
+        </div>
+      </div>
+      <div class="goal-item">
+        <label class="goal-label" style="color:#5a9b5a">脂肪</label>
+        <div class="goal-inp-wrap">
+          <input class="goal-inp" type="number" id="fit-goal-fat" min="0" placeholder="60">
+          <span class="goal-inp-unit">g</span>
+        </div>
+      </div>
+      <div class="goal-item">
+        <label class="goal-label">目标体重</label>
+        <div class="goal-inp-wrap">
+          <input class="goal-inp" type="number" id="fit-goal-weight" min="0" step="0.1" placeholder="—">
+          <span class="goal-inp-unit">kg</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly calorie section -->
+  <div class="fit-section">
+    <div class="fit-week-header">
+      <div class="fit-section-title">📊 热量记录</div>
+      <div class="week-nav-fit">
+        <button id="week-prev-fit">‹</button>
+        <span id="week-label-fit"></span>
+        <button id="week-next-fit">›</button>
+      </div>
+    </div>
+
+    <canvas id="cal-chart" style="width:100%;height:200px"></canvas>
+
+    <div class="achieve-title" style="margin-top:16px">每日营养达成</div>
+    <div class="achieve-table-wrap">
+      <table class="achieve-table">
+        <thead>
+          <tr>
+            <th class="ach-row-label"></th>
+            <th>周一</th><th>周二</th><th>周三</th>
+            <th>周四</th><th>周五</th><th>周六</th><th>周日</th>
+          </tr>
+        </thead>
+        <tbody id="achieve-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="weekly-summary-box" id="weekly-summary-text" style="margin-top:12px"></div>
+  </div>
+
+  <!-- Long-term weight trend section -->
+  <div class="fit-section">
+    <div class="fit-week-header">
+      <div class="fit-section-title">📈 体重趋势</div>
+      <div class="range-btns" id="range-btns">
+        <button class="range-btn active" data-range="30">近1月</button>
+        <button class="range-btn" data-range="90">近3月</button>
+        <button class="range-btn" data-range="180">近半年</button>
+        <button class="range-btn" data-range="0">全部</button>
+      </div>
+    </div>
+
+    <div class="today-weight-row">
+      <label>今日体重</label>
+      <input type="number" id="today-weight-inp" step="0.1" min="0" max="500" placeholder="—">
+      <span>kg</span>
+      <span class="today-date" id="today-weight-date"></span>
+    </div>
+
+    <canvas id="weight-trend-chart" style="width:100%;height:240px"></canvas>
+  </div>
+</div>
+
+<!-- FOOD LIBRARY PANEL -->
+<div id="lib-panel" style="display:none">
+  <div class="lib-toolbar">
+    <input class="lib-search" id="lib-search" type="text" placeholder="搜索食物库…">
+    <button class="lib-add-btn" id="lib-add-btn">＋ 新增食物</button>
+  </div>
+  <div class="lib-card">
+    <table class="lib-table">
+      <thead>
+        <tr>
+          <th>食物名称</th>
+          <th class="col-unit">单位</th>
+          <th class="col-num">热量/100</th>
+          <th class="col-num" style="color:#b0c4de">蛋白质/100g</th>
+          <th class="col-num" style="color:#c4b0a0">碳水/100g</th>
+          <th class="col-num" style="color:#b0c4b0">脂肪/100g</th>
+          <th class="col-del"></th>
+        </tr>
+      </thead>
+      <tbody id="lib-tbody"></tbody>
+    </table>
+    <div class="lib-empty" id="lib-empty" style="display:none">还没有保存任何自定义食物</div>
+  </div>
+</div>
+
+<!-- AI PANEL -->
+<div id="ai-panel" style="display:none">
+  <div class="api-key-bar">
+    <label>API Key</label>
+    <input type="password" id="api-key-input" placeholder="sk-...  输入你的 OpenAI API Key">
+    <span class="key-status" id="key-status" style="display:none">✓ 已保存</span>
+    <button id="save-key-btn">保存</button>
+    <button id="clear-key-btn" style="color:#e44;border-color:#fcc">清除</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-empty" id="chat-empty">
+      <div class="chat-empty-icon">🤖</div>
+      <div>发送食物图片或描述，AI 将估算热量和营养成分</div>
+      <div style="font-size:12px;color:#ddd;margin-top:4px">需要填入 OpenAI API Key（支持 GPT-4o）</div>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <div id="img-preview-bar"></div>
+    <textarea id="chat-text" placeholder="描述你吃的食物，或上传图片让 AI 估算热量…" rows="3"></textarea>
+    <div class="chat-toolbar">
+      <label class="upload-label">
+        📷 上传图片
+        <input type="file" id="image-upload" accept="image/*" multiple style="display:none">
+      </label>
+      <button id="send-btn">发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CLOUD SYNC MODAL ===== -->
+<div id="cloud-modal" class="cloud-modal-overlay" style="display:none">
+  <div class="cloud-modal">
+    <div class="cloud-modal-header">
+      <span>☁ 云同步设置</span>
+      <button id="cloud-modal-close" class="cloud-modal-close">✕</button>
+    </div>
+    <div class="cloud-modal-body">
+      <p class="cloud-hint">填入你的 Supabase 项目信息后，所有数据将实时同步到云端，两台设备共用同一份记录。</p>
+      <label class="cloud-label">Supabase 项目 URL</label>
+      <input id="sb-url-input" class="cloud-input" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co">
+      <label class="cloud-label">Supabase Anon Key</label>
+      <input id="sb-key-input" class="cloud-input" type="password" placeholder="eyJhbGciOiJIUzI1NiIsIn...">
+      <div class="cloud-modal-actions">
+        <button id="cloud-connect-btn" class="cloud-connect-btn">连接</button>
+        <button id="cloud-disconnect-btn" class="cloud-disconnect-btn">断开连接</button>
+        <button id="cloud-push-btn" class="cloud-push-btn" title="把本地数据上传到云端">上传本地数据</button>
+      </div>
+      <div id="cloud-status-msg" class="cloud-status-msg"></div>
+      <div class="cloud-sql-hint">
+        <strong>首次使用？</strong> 在 Supabase 控制台的 SQL Editor 中运行以下语句创建数据表：
+        <pre class="cloud-sql">CREATE TABLE kv_store (
+  key TEXT PRIMARY KEY,
+  value JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE kv_store ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public access" ON kv_store
+  FOR ALL USING (true) WITH CHECK (true);</pre>
+        然后在 <strong>Database → Publications → supabase_realtime</strong> 中为 <code>kv_store</code> 开启 Realtime。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== FOOD DATABASE (removed — AI handles estimation) =====================
+// Built-in database removed; custom foods are saved in localStorage via the AI chat flow.
+const FOOD_DB_REMOVED_SENTINEL = [
+  // 主食
+  { name:"白米饭",       cal:116, protein:2.6,  carbs:25.9, fat:0.3,  unit:"g" },
+  { name:"糙米饭",       cal:111, protein:2.6,  carbs:23.0, fat:0.9,  unit:"g" },
+  { name:"粥（白粥）",   cal:46,  protein:1.1,  carbs:10.0, fat:0.1,  unit:"g" },
+  { name:"馒头",         cal:223, protein:7.0,  carbs:47.0, fat:1.0,  unit:"g" },
+  { name:"花卷",         cal:217, protein:6.5,  carbs:45.0, fat:1.2,  unit:"g" },
+  { name:"白面包",       cal:265, protein:9.0,  carbs:49.0, fat:3.2,  unit:"g" },
+  { name:"全麦面包",     cal:246, protein:13.0, carbs:41.0, fat:3.4,  unit:"g" },
+  { name:"面条（熟）",   cal:137, protein:4.5,  carbs:27.0, fat:0.8,  unit:"g" },
+  { name:"拉面（熟）",   cal:138, protein:4.5,  carbs:27.5, fat:0.9,  unit:"g" },
+  { name:"饺子",         cal:195, protein:7.0,  carbs:25.0, fat:7.5,  unit:"g" },
+  { name:"包子（肉馅）", cal:226, protein:9.0,  carbs:31.0, fat:8.0,  unit:"g" },
+  { name:"包子（素馅）", cal:175, protein:6.0,  carbs:30.0, fat:3.5,  unit:"g" },
+  { name:"燕麦（干）",   cal:389, protein:17.0, carbs:66.0, fat:7.0,  unit:"g" },
+  { name:"燕麦粥",       cal:71,  protein:2.5,  carbs:12.0, fat:1.5,  unit:"g" },
+  { name:"薏米",         cal:357, protein:12.8, carbs:71.0, fat:3.3,  unit:"g" },
+  { name:"红薯",         cal:86,  protein:1.6,  carbs:20.0, fat:0.1,  unit:"g" },
+  { name:"紫薯",         cal:90,  protein:1.8,  carbs:21.0, fat:0.1,  unit:"g" },
+  { name:"土豆",         cal:77,  protein:2.0,  carbs:17.0, fat:0.1,  unit:"g" },
+  { name:"玉米",         cal:86,  protein:3.2,  carbs:19.0, fat:1.2,  unit:"g" },
+  { name:"饼干（普通）", cal:444, protein:7.0,  carbs:70.0, fat:16.0, unit:"g" },
+  { name:"方便面（干）", cal:473, protein:9.0,  carbs:65.0, fat:19.0, unit:"g" },
+  { name:"泡面（煮熟）", cal:152, protein:3.5,  carbs:22.0, fat:5.5,  unit:"g" },
+
+  // 肉类
+  { name:"鸡胸肉",         cal:133, protein:25.0, carbs:0.0,  fat:3.1,  unit:"g" },
+  { name:"鸡腿肉（去皮）", cal:181, protein:20.0, carbs:0.0,  fat:11.0, unit:"g" },
+  { name:"鸡翅",           cal:240, protein:18.0, carbs:0.0,  fat:19.0, unit:"g" },
+  { name:"猪里脊",         cal:155, protein:21.0, carbs:0.0,  fat:8.0,  unit:"g" },
+  { name:"猪五花",         cal:395, protein:14.0, carbs:0.0,  fat:37.0, unit:"g" },
+  { name:"猪排骨",         cal:278, protein:17.0, carbs:0.0,  fat:23.0, unit:"g" },
+  { name:"牛里脊",         cal:107, protein:21.0, carbs:0.0,  fat:2.5,  unit:"g" },
+  { name:"牛腩",           cal:332, protein:17.0, carbs:0.0,  fat:29.0, unit:"g" },
+  { name:"羊肉",           cal:203, protein:19.0, carbs:0.0,  fat:14.0, unit:"g" },
+  { name:"培根",           cal:541, protein:18.0, carbs:1.0,  fat:50.0, unit:"g" },
+  { name:"香肠",           cal:360, protein:14.0, carbs:3.0,  fat:32.0, unit:"g" },
+  { name:"火腿",           cal:140, protein:16.0, carbs:2.5,  fat:7.0,  unit:"g" },
+  { name:"火腿肠",         cal:212, protein:11.0, carbs:9.0,  fat:15.0, unit:"g" },
+
+  // 海鲜
+  { name:"虾",           cal:93,  protein:18.0, carbs:0.9,  fat:1.4,  unit:"g" },
+  { name:"鲈鱼",         cal:105, protein:18.6, carbs:0.0,  fat:3.4,  unit:"g" },
+  { name:"三文鱼",       cal:208, protein:20.0, carbs:0.0,  fat:13.0, unit:"g" },
+  { name:"金枪鱼（罐头）",cal:116,protein:26.0, carbs:0.0,  fat:1.0,  unit:"g" },
+  { name:"螃蟹",         cal:95,  protein:16.0, carbs:0.7,  fat:2.3,  unit:"g" },
+  { name:"扇贝",         cal:88,  protein:17.0, carbs:2.6,  fat:0.8,  unit:"g" },
+  { name:"蛤蜊",         cal:74,  protein:12.8, carbs:2.8,  fat:1.1,  unit:"g" },
+  { name:"鱿鱼",         cal:92,  protein:16.0, carbs:3.1,  fat:1.4,  unit:"g" },
+
+  // 蛋奶
+  { name:"鸡蛋",         cal:144, protein:12.0, carbs:0.7,  fat:10.0, unit:"g" },
+  { name:"蛋白",         cal:52,  protein:11.0, carbs:0.7,  fat:0.2,  unit:"g" },
+  { name:"蛋黄",         cal:322, protein:16.0, carbs:1.6,  fat:27.0, unit:"g" },
+  { name:"牛奶（全脂）", cal:61,  protein:3.2,  carbs:4.8,  fat:3.3,  unit:"ml" },
+  { name:"牛奶（脱脂）", cal:35,  protein:3.4,  carbs:4.9,  fat:0.2,  unit:"ml" },
+  { name:"豆浆",         cal:31,  protein:3.0,  carbs:1.8,  fat:1.6,  unit:"ml" },
+  { name:"酸奶（无糖）", cal:57,  protein:10.0, carbs:3.6,  fat:0.4,  unit:"g" },
+  { name:"酸奶（普通）", cal:72,  protein:3.0,  carbs:12.0, fat:1.5,  unit:"g" },
+  { name:"希腊酸奶",     cal:97,  protein:9.0,  carbs:4.0,  fat:5.0,  unit:"g" },
+  { name:"奶酪",         cal:402, protein:25.0, carbs:1.3,  fat:33.0, unit:"g" },
+  { name:"黄油",         cal:717, protein:0.9,  carbs:0.1,  fat:81.0, unit:"g" },
+
+  // 蔬菜
+  { name:"西兰花",   cal:34,  protein:2.8,  carbs:7.0,  fat:0.4,  unit:"g" },
+  { name:"菠菜",     cal:23,  protein:2.9,  carbs:3.6,  fat:0.4,  unit:"g" },
+  { name:"白菜",     cal:13,  protein:1.0,  carbs:2.2,  fat:0.1,  unit:"g" },
+  { name:"生菜",     cal:15,  protein:1.4,  carbs:2.1,  fat:0.2,  unit:"g" },
+  { name:"卷心菜",   cal:25,  protein:1.3,  carbs:5.8,  fat:0.1,  unit:"g" },
+  { name:"黄瓜",     cal:16,  protein:0.7,  carbs:3.6,  fat:0.1,  unit:"g" },
+  { name:"番茄",     cal:18,  protein:0.9,  carbs:3.9,  fat:0.2,  unit:"g" },
+  { name:"胡萝卜",   cal:41,  protein:0.9,  carbs:10.0, fat:0.2,  unit:"g" },
+  { name:"洋葱",     cal:40,  protein:1.1,  carbs:9.3,  fat:0.1,  unit:"g" },
+  { name:"蘑菇",     cal:22,  protein:3.1,  carbs:3.3,  fat:0.3,  unit:"g" },
+  { name:"香菇",     cal:34,  protein:2.2,  carbs:6.8,  fat:0.5,  unit:"g" },
+  { name:"豆腐（嫩）",cal:55, protein:6.0,  carbs:2.0,  fat:2.7,  unit:"g" },
+  { name:"豆腐（老）",cal:82, protein:8.1,  carbs:1.9,  fat:4.8,  unit:"g" },
+  { name:"茄子",     cal:25,  protein:1.0,  carbs:6.0,  fat:0.2,  unit:"g" },
+  { name:"芹菜",     cal:16,  protein:0.7,  carbs:3.5,  fat:0.1,  unit:"g" },
+  { name:"韭菜",     cal:29,  protein:2.4,  carbs:4.6,  fat:0.4,  unit:"g" },
+  { name:"青椒",     cal:24,  protein:0.9,  carbs:5.4,  fat:0.2,  unit:"g" },
+  { name:"辣椒",     cal:31,  protein:1.9,  carbs:6.1,  fat:0.4,  unit:"g" },
+  { name:"豆芽",     cal:18,  protein:1.8,  carbs:2.9,  fat:0.2,  unit:"g" },
+  { name:"西葫芦",   cal:17,  protein:1.2,  carbs:3.1,  fat:0.3,  unit:"g" },
+  { name:"南瓜",     cal:26,  protein:1.0,  carbs:6.5,  fat:0.1,  unit:"g" },
+  { name:"山药",     cal:56,  protein:1.9,  carbs:12.4, fat:0.2,  unit:"g" },
+  { name:"藕",       cal:74,  protein:1.9,  carbs:17.2, fat:0.2,  unit:"g" },
+
+  // 水果
+  { name:"苹果",   cal:52,  protein:0.3,  carbs:14.0, fat:0.2,  unit:"g" },
+  { name:"香蕉",   cal:89,  protein:1.1,  carbs:23.0, fat:0.3,  unit:"g" },
+  { name:"橙子",   cal:47,  protein:0.9,  carbs:12.0, fat:0.1,  unit:"g" },
+  { name:"葡萄",   cal:67,  protein:0.6,  carbs:17.0, fat:0.4,  unit:"g" },
+  { name:"西瓜",   cal:30,  protein:0.6,  carbs:7.6,  fat:0.2,  unit:"g" },
+  { name:"草莓",   cal:32,  protein:0.7,  carbs:7.7,  fat:0.3,  unit:"g" },
+  { name:"蓝莓",   cal:57,  protein:0.7,  carbs:14.0, fat:0.3,  unit:"g" },
+  { name:"芒果",   cal:60,  protein:0.8,  carbs:15.0, fat:0.4,  unit:"g" },
+  { name:"桃子",   cal:39,  protein:0.9,  carbs:10.0, fat:0.3,  unit:"g" },
+  { name:"梨",     cal:57,  protein:0.4,  carbs:15.0, fat:0.1,  unit:"g" },
+  { name:"菠萝",   cal:50,  protein:0.5,  carbs:13.0, fat:0.1,  unit:"g" },
+  { name:"猕猴桃", cal:61,  protein:1.1,  carbs:15.0, fat:0.5,  unit:"g" },
+  { name:"火龙果", cal:60,  protein:1.2,  carbs:13.0, fat:0.6,  unit:"g" },
+  { name:"樱桃",   cal:50,  protein:1.0,  carbs:12.0, fat:0.3,  unit:"g" },
+  { name:"柚子",   cal:42,  protein:0.8,  carbs:10.7, fat:0.1,  unit:"g" },
+  { name:"牛油果", cal:160, protein:2.0,  carbs:9.0,  fat:15.0, unit:"g" },
+
+  // 坚果
+  { name:"核桃",         cal:654, protein:15.0, carbs:14.0, fat:65.0, unit:"g" },
+  { name:"杏仁",         cal:579, protein:21.0, carbs:22.0, fat:50.0, unit:"g" },
+  { name:"花生",         cal:567, protein:26.0, carbs:16.0, fat:49.0, unit:"g" },
+  { name:"腰果",         cal:553, protein:18.0, carbs:30.0, fat:44.0, unit:"g" },
+  { name:"瓜子（葵花籽）",cal:584,protein:21.0, carbs:20.0, fat:51.0, unit:"g" },
+  { name:"开心果",       cal:562, protein:20.0, carbs:28.0, fat:45.0, unit:"g" },
+
+  // 油脂调料
+  { name:"植物油",     cal:884, protein:0.0,  carbs:0.0,  fat:100.0, unit:"g" },
+  { name:"橄榄油",     cal:884, protein:0.0,  carbs:0.0,  fat:100.0, unit:"g" },
+  { name:"芝麻油",     cal:884, protein:0.0,  carbs:0.0,  fat:100.0, unit:"g" },
+  { name:"糖（白砂糖）",cal:387,protein:0.0,  carbs:100.0,fat:0.0,  unit:"g" },
+  { name:"蜂蜜",       cal:304, protein:0.3,  carbs:82.0, fat:0.0,   unit:"g" },
+
+  // 饮品
+  { name:"可乐",       cal:43,  protein:0.0,  carbs:11.0, fat:0.0,  unit:"ml" },
+  { name:"雪碧",       cal:41,  protein:0.0,  carbs:10.5, fat:0.0,  unit:"ml" },
+  { name:"橙汁",       cal:45,  protein:0.7,  carbs:10.4, fat:0.2,  unit:"ml" },
+  { name:"咖啡（黑）", cal:2,   protein:0.3,  carbs:0.0,  fat:0.0,  unit:"ml" },
+  { name:"拿铁咖啡",   cal:54,  protein:2.5,  carbs:5.0,  fat:2.5,  unit:"ml" },
+  { name:"绿茶",       cal:1,   protein:0.2,  carbs:0.0,  fat:0.0,  unit:"ml" },
+  { name:"啤酒",       cal:43,  protein:0.5,  carbs:3.6,  fat:0.0,  unit:"ml" },
+  { name:"红酒",       cal:85,  protein:0.1,  carbs:2.6,  fat:0.0,  unit:"ml" },
+
+  // 快餐小吃
+  { name:"汉堡（普通）", cal:257, protein:13.0, carbs:24.0, fat:12.0, unit:"g" },
+  { name:"薯条",         cal:312, protein:3.4,  carbs:41.0, fat:15.0, unit:"g" },
+  { name:"披萨（普通）", cal:266, protein:11.0, carbs:33.0, fat:10.0, unit:"g" },
+  { name:"锅贴",         cal:195, protein:7.0,  carbs:24.0, fat:8.0,  unit:"g" },
+  { name:"春卷",         cal:260, protein:5.0,  carbs:30.0, fat:13.0, unit:"g" },
+];
+
+// ===================== STATE =====================
+let currentDate = todayStr();
+let currentPerson = 0;
+let data = loadAll();
+
+// Person names stored separately
+let personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadAll() {
+  try { return JSON.parse(localStorage.getItem("diet_data2") || "{}"); } catch { return {}; }
+}
+
+function saveAll() {
+  localStorage.setItem("diet_data2", JSON.stringify(data));
+  cloudSave("diet_data2", data);
+}
+
+function saveNames() {
+  localStorage.setItem("person_names", JSON.stringify(personNames));
+  cloudSave("person_names", personNames);
+}
+
+function getPersonDay(date, p) {
+  if (!data[date]) data[date] = {};
+  if (!data[date][p]) {
+    data[date][p] = {
+      meals: [
+        { name:"早餐", icon:"☀️",  items:[] },
+        { name:"午餐", icon:"🌤️", items:[] },
+        { name:"晚餐", icon:"🌙", items:[] },
+        { name:"加餐", icon:"🍎", items:[] },
+      ],
+      note: ""
+    };
+  }
+  return data[date][p];
+}
+
+function newItem() {
+  return { id: Date.now() + Math.random(), food:"", weight:"", calPer:"", protein:"", carbs:"", fat:"" };
+}
+
+// ===================== CUSTOM FOOD DB =====================
+let customFoods = loadCustomFoods();
+
+function loadCustomFoods() {
+  try { return JSON.parse(localStorage.getItem("custom_foods") || "[]"); } catch { return []; }
+}
+
+function saveCustomFoods() {
+  localStorage.setItem("custom_foods", JSON.stringify(customFoods));
+  cloudSave("custom_foods", customFoods);
+}
+
+function maybeSaveCustomFood(item) {
+  const name = item.food.trim();
+  if (!name || item.calPer === "") return false;
+  const toNum = v => (v === "" || isNaN(parseFloat(v))) ? 0 : parseFloat(v);
+  const entry = { name, cal: toNum(item.calPer), protein: toNum(item.protein), carbs: toNum(item.carbs), fat: toNum(item.fat), unit: "g", custom: true };
+  const idx = customFoods.findIndex(f => f.name.toLowerCase() === name.toLowerCase());
+  if (idx >= 0) customFoods[idx] = entry;
+  else customFoods.push(entry);
+  saveCustomFoods();
+  return true;
+}
+
+function deleteCustomFood(name) {
+  customFoods = customFoods.filter(f => f.name.toLowerCase() !== name.toLowerCase());
+  saveCustomFoods();
+}
+
+// ===================== CALORIE / MACRO LOGIC =====================
+function lookupFood(name) {
+  const n = name.trim().toLowerCase();
+  return customFoods.find(f => f.name.toLowerCase() === n);
+}
+
+function searchFood(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return customFoods.filter(f => f.name.toLowerCase().includes(q)).slice(0, 12);
+}
+
+function itemNutrition(item) {
+  const cp  = parseFloat(item.calPer);
+  if (isNaN(cp)) return { cal:0, protein:0, carbs:0, fat:0, source:"none" };
+
+  const w = parseFloat(item.weight);
+  // weight blank/0 → treat inputs as absolute totals (multiply by 1, i.e. w=100)
+  const effectiveW = (isNaN(w) || w <= 0) ? 100 : w;
+
+  const pp  = parseFloat(item.protein);
+  const cbp = parseFloat(item.carbs);
+  const fp  = parseFloat(item.fat);
+
+  return {
+    cal:     Math.round(effectiveW * cp  / 100),
+    protein: isNaN(pp)  ? 0 : Math.round(effectiveW * pp  / 10) / 10,
+    carbs:   isNaN(cbp) ? 0 : Math.round(effectiveW * cbp / 10) / 10,
+    fat:     isNaN(fp)  ? 0 : Math.round(effectiveW * fp  / 10) / 10,
+    source:  "estimated",
+  };
+}
+
+// ===================== RENDER =====================
+const MEAL_ICONS = ["☀️","🌤️","🌙","🍎"];
+const MACRO_GOALS = { cal:2000, protein:75, carbs:250, fat:60 };
+
+function render() {
+  const pday = getPersonDay(currentDate, currentPerson);
+
+  // date label
+  const d = new Date(currentDate + "T00:00:00");
+  document.getElementById("date-label").textContent =
+    d.toLocaleDateString("zh-CN", { month:"long", day:"numeric", weekday:"short" });
+
+  document.getElementById("next-day").disabled = (currentDate >= todayStr());
+
+  // person tab avatars & names
+  document.querySelectorAll(".tab-name-input").forEach((inp, i) => {
+    inp.value = personNames[i];
+    inp.previousElementSibling.textContent = personNames[i].charAt(0).toUpperCase();
+  });
+  document.querySelectorAll(".person-tab").forEach((tab, i) => {
+    tab.classList.toggle("active", i === currentPerson);
+  });
+
+  // note
+  document.getElementById("note-input").value = pday.note || "";
+
+  // meals
+  const container = document.getElementById("meals-container");
+  container.innerHTML = "";
+
+  let totalCal = 0, totalProt = 0, totalCarb = 0, totalFat = 0;
+  const mealTotals = [];
+
+  pday.meals.forEach((meal, mi) => {
+    const mt = meal.items.reduce((acc, it) => {
+      const n = itemNutrition(it);
+      return { cal:acc.cal+n.cal, prot:acc.prot+n.protein, carb:acc.carb+n.carbs, fat:acc.fat+n.fat };
+    }, { cal:0, prot:0, carb:0, fat:0 });
+    mealTotals.push(mt);
+    totalCal  += mt.cal;
+    totalProt += mt.prot;
+    totalCarb += mt.carb;
+    totalFat  += mt.fat;
+
+    const sec = document.createElement("div");
+    sec.className = "meal-section";
+
+    const mealSumStr = mt.cal > 0
+      ? `${mt.cal} kcal · 蛋白 ${mt.prot.toFixed(1)}g · 碳水 ${mt.carb.toFixed(1)}g · 脂肪 ${mt.fat.toFixed(1)}g`
+      : "";
+
+    sec.innerHTML = `
+      <div class="meal-header">
+        <span class="meal-icon">${meal.icon}</span>
+        <span class="meal-title">${meal.name}</span>
+        <span class="meal-summary" id="meal-sum-${mi}">${mealSumStr}</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th class="th-food">食物</th>
+            <th class="th-weight" style="text-align:right">重量</th>
+            <th class="th-unit"></th>
+            <th class="th-cal">热量<span class="th-unit-label">/100</span></th>
+            <th class="th-prot">蛋白<span class="th-unit-label">/100g</span></th>
+            <th class="th-carb">碳水<span class="th-unit-label">/100g</span></th>
+            <th class="th-fat">脂肪<span class="th-unit-label">/100g</span></th>
+            <th class="th-del"></th>
+          </tr>
+        </thead>
+        <tbody id="meal-body-${mi}"></tbody>
+      </table>
+      <button class="add-row-btn" data-mi="${mi}">＋ 添加食物</button>
+    `;
+
+    container.appendChild(sec);
+
+    const tbody = sec.querySelector(`#meal-body-${mi}`);
+    meal.items.forEach((item, ii) => tbody.appendChild(renderRow(item, mi, ii)));
+
+    sec.querySelector(".add-row-btn").addEventListener("click", () => {
+      meal.items.push(newItem());
+      saveAll();
+      render();
+      setTimeout(() => {
+        const rows = document.querySelectorAll(`#meal-body-${mi} tr`);
+        rows[rows.length - 1]?.querySelector("input.food-input")?.focus();
+      }, 50);
+    });
+  });
+
+  // summary
+  const pctCal  = Math.min((totalCal  / MACRO_GOALS.cal)     * 100, 100);
+  const pctProt = Math.min((totalProt / MACRO_GOALS.protein)  * 100, 100);
+  const pctCarb = Math.min((totalCarb / MACRO_GOALS.carbs)    * 100, 100);
+  const pctFat  = Math.min((totalFat  / MACRO_GOALS.fat)      * 100, 100);
+
+  document.getElementById("total-cal").innerHTML  = `${Math.round(totalCal)} <span>kcal</span>`;
+  document.getElementById("total-prot").innerHTML = `${totalProt.toFixed(1)} <span>g</span>`;
+  document.getElementById("total-carb").innerHTML = `${totalCarb.toFixed(1)} <span>g</span>`;
+  document.getElementById("total-fat").innerHTML  = `${totalFat.toFixed(1)} <span>g</span>`;
+
+  const fill = document.getElementById("cal-bar-fill");
+  fill.style.width = pctCal + "%";
+  fill.className = "cal-bar-fill" + (totalCal > MACRO_GOALS.cal * 1.2 ? " over" : "");
+
+  document.getElementById("fill-prot").style.width = pctProt + "%";
+  document.getElementById("fill-carb").style.width = pctCarb + "%";
+  document.getElementById("fill-fat").style.width  = pctFat  + "%";
+
+  const mealNames = ["早餐","午餐","晚餐","加餐"];
+  document.getElementById("meal-breakdown").innerHTML = mealNames.map((n, i) => `
+    <div class="meal-stat">
+      <div class="meal-stat-icon">${MEAL_ICONS[i]}</div>
+      <div class="meal-stat-name">${n}</div>
+      <div class="meal-stat-val">${mealTotals[i].cal || 0}<span>kcal</span></div>
+    </div>
+  `).join("");
+}
+
+function renderRow(item, mi, ii) {
+  const tr = document.createElement("tr");
+  const pday = getPersonDay(currentDate, currentPerson);
+  const meal = pday.meals[mi];
+  const unitLabel = getUnit(item);
+  const isSaved = item.food ? !!lookupFood(item.food) : false;
+
+  tr.innerHTML = `
+    <td class="td-food">
+      <div class="food-cell-wrap">
+        <input class="food-input" type="text" value="${esc(item.food)}" placeholder="输入食物名称…" style="flex:1;min-width:0">
+        ${isSaved ? '<span class="custom-badge">已保存</span>' : ''}
+      </div>
+    </td>
+    <td style="text-align:right;padding-right:2px">
+      <input class="weight-input" type="number" min="0" value="${esc(item.weight)}" placeholder="0" style="width:55px;text-align:right">
+    </td>
+    <td class="td-unit" style="font-size:11px;color:#ccc;padding:0 4px">${unitLabel}</td>
+    <td class="th-cal">
+      <input class="nut-input cal" type="number" min="0" value="${esc(item.calPer)}" placeholder="—" title="每100${unitLabel}热量(kcal)">
+    </td>
+    <td class="th-prot">
+      <input class="nut-input prot" type="number" min="0" value="${esc(item.protein)}" placeholder="—" title="每100g蛋白质(g)">
+    </td>
+    <td class="th-carb">
+      <input class="nut-input carb" type="number" min="0" value="${esc(item.carbs)}" placeholder="—" title="每100g碳水(g)">
+    </td>
+    <td class="th-fat">
+      <input class="nut-input fat" type="number" min="0" value="${esc(item.fat)}" placeholder="—" title="每100g脂肪(g)">
+    </td>
+    <td class="th-del"><button class="delete-btn">×</button></td>
+  `;
+
+  const foodInput   = tr.querySelector(".food-input");
+  const weightInput = tr.querySelector(".weight-input");
+  const calInput    = tr.querySelector(".nut-input.cal");
+  const protInput   = tr.querySelector(".nut-input.prot");
+  const carbInput   = tr.querySelector(".nut-input.carb");
+  const fatInput    = tr.querySelector(".nut-input.fat");
+  const deleteBtn   = tr.querySelector(".delete-btn");
+
+  function syncNutInputs() {
+    calInput.value  = item.calPer;
+    protInput.value = item.protein;
+    carbInput.value = item.carbs;
+    fatInput.value  = item.fat;
+  }
+
+  foodInput.addEventListener("input", () => {
+    item.food = foodInput.value;
+    showSuggestions(foodInput, item, mi);
+  });
+
+  foodInput.addEventListener("keydown", e => handleSugKey(e, foodInput, item, mi, tr));
+
+  foodInput.addEventListener("blur", () => {
+    setTimeout(() => hideSuggestions(), 200);
+    autoFillFromDB(item, tr);
+    syncNutInputs();
+    saveAll(); refreshBadge(tr, item); refreshMeal(mi); refreshSummary();
+  });
+
+  weightInput.addEventListener("input", () => {
+    item.weight = weightInput.value;
+    saveAll(); refreshMeal(mi); refreshSummary();
+  });
+
+  function onNutInput(field, input) {
+    return () => {
+      item[field] = input.value;
+      const saved = maybeSaveCustomFood(item);
+      if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
+      saveAll(); refreshMeal(mi); refreshSummary();
+    };
+  }
+
+  calInput.addEventListener("input",  onNutInput("calPer",  calInput));
+  protInput.addEventListener("input", onNutInput("protein", protInput));
+  carbInput.addEventListener("input", onNutInput("carbs",   carbInput));
+  fatInput.addEventListener("input",  onNutInput("fat",     fatInput));
+
+  deleteBtn.addEventListener("click", () => {
+    meal.items.splice(ii, 1);
+    saveAll(); render();
+  });
+
+  return tr;
+}
+
+function refreshBadge(tr, item) {
+  const wrap = tr.querySelector(".food-cell-wrap");
+  if (!wrap) return;
+  wrap.querySelectorAll(".custom-badge").forEach(el => el.remove());
+  if (item.food && lookupFood(item.food)) {
+    const badge = document.createElement("span");
+    badge.className = "custom-badge";
+    badge.textContent = "已保存";
+    wrap.appendChild(badge);
+  }
+}
+
+function autoFillFromDB(item, tr) {
+  if (!item.food) return;
+  const match = lookupFood(item.food);
+  if (match) {
+    if (item.calPer  === "") item.calPer  = String(match.cal);
+    if (item.protein === "") item.protein = String(match.protein);
+    if (item.carbs   === "") item.carbs   = String(match.carbs);
+    if (item.fat     === "") item.fat     = String(match.fat);
+  }
+  if (tr) {
+    const unitTd = tr.querySelector(".td-unit");
+    if (unitTd) unitTd.textContent = getUnit(item);
+  }
+}
+
+function getUnit(item) {
+  if (!item.food) return "g";
+  const m = lookupFood(item.food);
+  return m ? m.unit : "g";
+}
+
+function refreshMeal(mi) {
+  const pday = getPersonDay(currentDate, currentPerson);
+  const mt = pday.meals[mi].items.reduce((acc, it) => {
+    const n = itemNutrition(it);
+    return { cal:acc.cal+n.cal, prot:acc.prot+n.protein, carb:acc.carb+n.carbs, fat:acc.fat+n.fat };
+  }, { cal:0, prot:0, carb:0, fat:0 });
+  const el = document.getElementById(`meal-sum-${mi}`);
+  if (el) el.textContent = mt.cal > 0
+    ? `${mt.cal} kcal · 蛋白 ${mt.prot.toFixed(1)}g · 碳水 ${mt.carb.toFixed(1)}g · 脂肪 ${mt.fat.toFixed(1)}g`
+    : "";
+}
+
+function refreshSummary() {
+  const pday = getPersonDay(currentDate, currentPerson);
+  let totalCal=0, totalProt=0, totalCarb=0, totalFat=0;
+  pday.meals.forEach(m => m.items.forEach(it => {
+    const n = itemNutrition(it);
+    totalCal+=n.cal; totalProt+=n.protein; totalCarb+=n.carbs; totalFat+=n.fat;
+  }));
+
+  document.getElementById("total-cal").innerHTML  = `${Math.round(totalCal)} <span>kcal</span>`;
+  document.getElementById("total-prot").innerHTML = `${totalProt.toFixed(1)} <span>g</span>`;
+  document.getElementById("total-carb").innerHTML = `${totalCarb.toFixed(1)} <span>g</span>`;
+  document.getElementById("total-fat").innerHTML  = `${totalFat.toFixed(1)} <span>g</span>`;
+
+  const fill = document.getElementById("cal-bar-fill");
+  fill.style.width = Math.min((totalCal/MACRO_GOALS.cal)*100, 100) + "%";
+  fill.className = "cal-bar-fill" + (totalCal > MACRO_GOALS.cal*1.2 ? " over" : "");
+
+  document.getElementById("fill-prot").style.width = Math.min((totalProt/MACRO_GOALS.protein)*100,100)+"%";
+  document.getElementById("fill-carb").style.width = Math.min((totalCarb/MACRO_GOALS.carbs)*100,100)+"%";
+  document.getElementById("fill-fat").style.width  = Math.min((totalFat/MACRO_GOALS.fat)*100,100)+"%";
+
+  const mealNames=["早餐","午餐","晚餐","加餐"];
+  const mealCals = pday.meals.map(m => m.items.reduce((s,it)=>s+itemNutrition(it).cal,0));
+  document.getElementById("meal-breakdown").innerHTML = mealNames.map((n,i)=>`
+    <div class="meal-stat">
+      <div class="meal-stat-icon">${MEAL_ICONS[i]}</div>
+      <div class="meal-stat-name">${n}</div>
+      <div class="meal-stat-val">${mealCals[i]||0}<span>kcal</span></div>
+    </div>
+  `).join("");
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ===================== AUTOCOMPLETE =====================
+let activeSugg = [], activeSuggIdx = -1;
+
+function showSuggestions(input, item, mi) {
+  const results = searchFood(input.value);
+  const box = document.getElementById("suggestion-box");
+  if (!results.length) { hideSuggestions(); return; }
+
+  activeSugg = results;
+  activeSuggIdx = -1;
+
+  box.innerHTML = results.map((f, i) => `
+    <div class="suggestion-item" data-idx="${i}">
+      <span style="display:flex;align-items:center;gap:5px">
+        ${f.name}
+        ${f.custom ? '<span style="font-size:10px;color:#5a9b6a;background:#edfaf1;border:1px solid #c3e6cb;border-radius:3px;padding:1px 4px">自定义</span>' : ''}
+      </span>
+      <div class="sug-right">
+        <span class="sug-macros">蛋白${f.protein}g 碳水${f.carbs}g 脂${f.fat}g</span>
+        <span class="sug-cal">${f.cal}kcal/100${f.unit}</span>
+      </div>
+    </div>
+  `).join("");
+
+  const rect = input.getBoundingClientRect();
+  box.style.left = rect.left + "px";
+  box.style.top  = (rect.bottom + 2) + "px";
+  box.style.minWidth = Math.max(rect.width, 300) + "px";
+  box.style.display = "block";
+
+  box.querySelectorAll(".suggestion-item").forEach(el => {
+    el.addEventListener("mousedown", () => applySugg(activeSugg[+el.dataset.idx], input, item, mi));
+  });
+}
+
+function hideSuggestions() {
+  document.getElementById("suggestion-box").style.display = "none";
+  activeSugg = []; activeSuggIdx = -1;
+}
+
+function applySugg(food, input, item, mi) {
+  item.food    = food.name;
+  item.calPer  = String(food.cal);
+  item.protein = String(food.protein);
+  item.carbs   = String(food.carbs);
+  item.fat     = String(food.fat);
+  input.value  = food.name;
+  const tr = input.closest("tr");
+  if (tr) {
+    tr.querySelector(".nut-input.cal").value  = food.cal;
+    tr.querySelector(".nut-input.prot").value = food.protein;
+    tr.querySelector(".nut-input.carb").value = food.carbs;
+    tr.querySelector(".nut-input.fat").value  = food.fat;
+    const unitTd = tr.querySelector(".td-unit");
+    if (unitTd) unitTd.textContent = food.unit || "g";
+    refreshBadge(tr, item);
+    refreshMeal(mi); refreshSummary();
+  }
+  saveAll();
+  hideSuggestions();
+  setTimeout(() => tr?.querySelector(".weight-input")?.focus(), 50);
+}
+
+function handleSugKey(e, input, item, mi, tr) {
+  const box = document.getElementById("suggestion-box");
+  if (box.style.display === "none") return;
+  const items = box.querySelectorAll(".suggestion-item");
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    activeSuggIdx = Math.min(activeSuggIdx + 1, items.length - 1);
+    items.forEach((el,i) => el.classList.toggle("active", i===activeSuggIdx));
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    activeSuggIdx = Math.max(activeSuggIdx - 1, -1);
+    items.forEach((el,i) => el.classList.toggle("active", i===activeSuggIdx));
+  } else if (e.key === "Enter" && activeSuggIdx >= 0) {
+    e.preventDefault();
+    applySugg(activeSugg[activeSuggIdx], input, item, mi);
+  } else if (e.key === "Escape") {
+    hideSuggestions();
+  }
+}
+
+// ===================== DATE NAV =====================
+document.getElementById("prev-day").addEventListener("click", () => {
+  const d = new Date(currentDate + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  currentDate = d.toISOString().slice(0, 10);
+  render();
+});
+
+document.getElementById("next-day").addEventListener("click", () => {
+  const d = new Date(currentDate + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  const next = d.toISOString().slice(0, 10);
+  if (next <= todayStr()) { currentDate = next; render(); }
+});
+
+document.getElementById("date-label").addEventListener("click", () => {
+  const inp = document.getElementById("date-input");
+  inp.value = currentDate;
+  inp.style.display = "block";
+  document.getElementById("date-label").style.display = "none";
+  inp.focus();
+});
+
+document.getElementById("date-input").addEventListener("change", e => {
+  const val = e.target.value;
+  if (val && val <= todayStr()) currentDate = val;
+  document.getElementById("date-input").style.display = "none";
+  document.getElementById("date-label").style.display = "";
+  render();
+});
+
+document.getElementById("date-input").addEventListener("blur", () => {
+  document.getElementById("date-input").style.display = "none";
+  document.getElementById("date-label").style.display = "";
+});
+
+// ===================== PERSON TABS =====================
+document.getElementById("person-tabs").addEventListener("click", e => {
+  const tab = e.target.closest(".person-tab");
+  if (tab && !e.target.classList.contains("tab-name-input")) {
+    currentPerson = +tab.dataset.p;
+    if (currentMode === "fitness") renderFitness();
+    else render();
+  }
+});
+
+document.querySelectorAll(".tab-name-input").forEach(inp => {
+  inp.addEventListener("input", () => {
+    const p = +inp.dataset.p;
+    personNames[p] = inp.value || (p === 0 ? "我" : "TA");
+    saveNames();
+    // update avatar
+    const tab = document.querySelector(`.person-tab[data-p="${p}"]`);
+    if (tab) tab.querySelector(".tab-avatar").textContent = personNames[p].charAt(0).toUpperCase();
+  });
+  // prevent tab switch when clicking name input
+  inp.addEventListener("click", e => e.stopPropagation());
+});
+
+// ===================== NOTE =====================
+document.getElementById("note-input").addEventListener("input", e => {
+  getPersonDay(currentDate, currentPerson).note = e.target.value;
+  saveAll();
+});
+
+// ===================== CLICK OUTSIDE =====================
+document.addEventListener("click", e => {
+  if (!e.target.closest(".food-input") && !e.target.closest("#suggestion-box")) {
+    hideSuggestions();
+  }
+});
+
+// ===================== MODE SWITCHING =====================
+let currentMode = "diary";
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll(".mode-tab").forEach(t => t.classList.toggle("active", t.dataset.mode === mode));
+  document.getElementById("person-tabs").style.display    = (mode === "diary" || mode === "fitness") ? "" : "none";
+  document.querySelector(".container").style.display      = mode === "diary"   ? "" : "none";
+  document.getElementById("ai-panel").style.display      = mode === "ai"      ? "" : "none";
+  document.getElementById("lib-panel").style.display     = mode === "lib"     ? "" : "none";
+  document.getElementById("fitness-panel").style.display = mode === "fitness" ? "" : "none";
+  if (mode === "lib")     renderLib();
+  if (mode === "fitness") renderFitness();
+}
+
+document.querySelectorAll(".mode-tab").forEach(tab => {
+  tab.addEventListener("click", () => setMode(tab.dataset.mode));
+});
+
+// ===================== FOOD LIBRARY =====================
+let libQuery = "";
+
+function renderLib() {
+  customFoods = loadCustomFoods();
+  updateLibTabCount();
+
+  const q = libQuery.toLowerCase();
+  const filtered = customFoods.filter(f => !q || f.name.toLowerCase().includes(q));
+
+  const tbody = document.getElementById("lib-tbody");
+  tbody.innerHTML = "";
+  document.getElementById("lib-empty").style.display = filtered.length === 0 ? "" : "none";
+
+  filtered.forEach(food => {
+    // find the real index in customFoods (unfiltered) for mutations
+    tbody.appendChild(renderLibRow(food));
+  });
+}
+
+function renderLibRow(food) {
+  const tr = document.createElement("tr");
+
+  tr.innerHTML = `
+    <td><input class="lib-input name-input" type="text" value="${esc(food.name)}" placeholder="食物名称"></td>
+    <td>
+      <select class="lib-unit-select">
+        <option value="g"  ${food.unit==="g"  ?"selected":""}>g</option>
+        <option value="ml" ${food.unit==="ml" ?"selected":""}>ml</option>
+      </select>
+    </td>
+    <td><input class="lib-input"      type="number" min="0" value="${food.cal}"     placeholder="0"></td>
+    <td><input class="lib-input prot" type="number" min="0" value="${food.protein}" placeholder="0"></td>
+    <td><input class="lib-input carb" type="number" min="0" value="${food.carbs}"   placeholder="0"></td>
+    <td><input class="lib-input fat"  type="number" min="0" value="${food.fat}"     placeholder="0"></td>
+    <td><button class="lib-del-btn" title="删除">×</button></td>
+  `;
+
+  const [nameInp, unitSel, calInp, protInp, carbInp, fatInp] = [
+    tr.querySelector(".name-input"),
+    tr.querySelector(".lib-unit-select"),
+    ...tr.querySelectorAll("input[type=number]"),
+  ];
+
+  function save() {
+    const oldName = food.name;
+    const newName = nameInp.value.trim();
+    if (!newName) return;
+
+    const updated = {
+      name:    newName,
+      unit:    unitSel.value,
+      cal:     parseFloat(calInp.value)  || 0,
+      protein: parseFloat(protInp.value) || 0,
+      carbs:   parseFloat(carbInp.value) || 0,
+      fat:     parseFloat(fatInp.value)  || 0,
+      custom:  true,
+    };
+
+    const idx = customFoods.findIndex(f => f.name === oldName);
+    if (idx >= 0) {
+      customFoods[idx] = updated;
+      food.name = newName; // keep reference in sync so next save finds it
+    }
+    saveCustomFoods();
+    updateLibTabCount();
+  }
+
+  [nameInp, unitSel, calInp, protInp, carbInp, fatInp].forEach(el => {
+    el.addEventListener("change", save);
+    el.addEventListener("blur",   save);
+  });
+
+  tr.querySelector(".lib-del-btn").addEventListener("click", () => {
+    customFoods = customFoods.filter(f => f.name !== food.name);
+    saveCustomFoods();
+    tr.remove();
+    document.getElementById("lib-empty").style.display = customFoods.length === 0 ? "" : "none";
+    updateLibTabCount();
+  });
+
+  return tr;
+}
+
+function updateLibTabCount() {
+  const el = document.getElementById("lib-tab-count");
+  if (el) el.textContent = customFoods.length > 0 ? ` ${customFoods.length}` : "";
+}
+
+document.getElementById("lib-search").addEventListener("input", e => {
+  libQuery = e.target.value;
+  renderLib();
+});
+
+document.getElementById("lib-add-btn").addEventListener("click", () => {
+  const newFood = { name: "", unit: "g", cal: 0, protein: 0, carbs: 0, fat: 0, custom: true };
+  customFoods.push(newFood);
+  saveCustomFoods();
+
+  document.getElementById("lib-empty").style.display = "none";
+  const tbody = document.getElementById("lib-tbody");
+  const row = renderLibRow(newFood);
+  tbody.appendChild(row);
+  row.querySelector(".name-input").focus();
+  updateLibTabCount();
+});
+
+// ===================== AI CHAT =====================
+const AI_SYSTEM_PROMPT = `你是一个专业的营养顾问助手，帮助用户估算食物和菜品的热量及营养成分。
+
+**重要规则**：只要用户询问任何食物、菜品、饮品的营养成分，你必须同时调用 save_foods_to_library 工具，将识别到的每种食物的每100g营养数据保存到用户的食物库。
+
+**数据规范**：
+- 所有数值均为每100g（固体）或每100ml（液体）的含量
+- 对于整道菜（如辣椒炒肉、红烧肉），按成品计算每100g的营养值
+- 如果用户提供了品牌或餐厅信息，在备注中注明
+- 无法精确估算时，给出合理范围的中间值，并在回复中说明
+
+**回复格式**（简洁清晰）：
+先用自然语言介绍食物特点，再给出估算数据，最后可提示数据已保存到食物库。全程中文。`;
+
+const AI_TOOLS = [{
+  type: "function",
+  function: {
+    name: "save_foods_to_library",
+    description: "将估算的食物营养数据（每100g）保存到用户的本地食物库",
+    parameters: {
+      type: "object",
+      properties: {
+        foods: {
+          type: "array",
+          description: "识别到的食物列表",
+          items: {
+            type: "object",
+            properties: {
+              name:    { type: "string", description: "食物或菜品名称（中文，简洁）" },
+              cal:     { type: "number", description: "每100g热量（kcal）" },
+              protein: { type: "number", description: "每100g蛋白质（g）" },
+              carbs:   { type: "number", description: "每100g碳水化合物（g）" },
+              fat:     { type: "number", description: "每100g脂肪（g）" },
+              unit:    { type: "string", enum: ["g","ml"], description: "固体用g，液体用ml" },
+              note:    { type: "string", description: "简短备注，如烹饪方式或品牌" }
+            },
+            required: ["name","cal","protein","carbs","fat"]
+          }
+        }
+      },
+      required: ["foods"]
+    }
+  }
+}];
+
+let chatHistory = [];
+let pendingImages = []; // [{dataUrl, base64, mimeType}]
+let apiKey = localStorage.getItem("openai_api_key") || "";
+
+function initAIPanel() {
+  if (apiKey) {
+    document.getElementById("api-key-input").value = "•".repeat(20);
+    document.getElementById("key-status").style.display = "inline";
+  }
+
+  document.getElementById("save-key-btn").addEventListener("click", () => {
+    const val = document.getElementById("api-key-input").value.trim();
+    if (!val || val.startsWith("•")) return;
+    apiKey = val;
+    localStorage.setItem("openai_api_key", apiKey);
+    document.getElementById("api-key-input").value = "•".repeat(20);
+    document.getElementById("key-status").style.display = "inline";
+  });
+
+  document.getElementById("clear-key-btn").addEventListener("click", () => {
+    apiKey = "";
+    localStorage.removeItem("openai_api_key");
+    document.getElementById("api-key-input").value = "";
+    document.getElementById("key-status").style.display = "none";
+  });
+
+  document.getElementById("image-upload").addEventListener("change", e => {
+    Array.from(e.target.files).forEach(file => addImage(file));
+    e.target.value = "";
+  });
+
+  document.getElementById("send-btn").addEventListener("click", sendMessage);
+
+  document.getElementById("chat-text").addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendMessage();
+  });
+}
+
+function addImage(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    const base64 = dataUrl.split(",")[1];
+    const mimeType = file.type;
+    pendingImages.push({ dataUrl, base64, mimeType });
+    renderImagePreviews();
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderImagePreviews() {
+  const bar = document.getElementById("img-preview-bar");
+  bar.innerHTML = "";
+  pendingImages.forEach((img, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "img-thumb-wrap";
+    wrap.innerHTML = `
+      <img class="img-thumb" src="${img.dataUrl}">
+      <button class="img-thumb-del" data-i="${i}">×</button>
+    `;
+    wrap.querySelector(".img-thumb-del").addEventListener("click", () => {
+      pendingImages.splice(i, 1);
+      renderImagePreviews();
+    });
+    bar.appendChild(wrap);
+  });
+}
+
+function appendBubble(role, content, imageUrls) {
+  const empty = document.getElementById("chat-empty");
+  if (empty) empty.remove();
+
+  const wrap = document.createElement("div");
+  wrap.className = `bubble-wrap ${role}`;
+
+  const avatar = document.createElement("div");
+  avatar.className = "bubble-avatar";
+  avatar.textContent = role === "user" ? "我" : "🤖";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  if (imageUrls && imageUrls.length) {
+    imageUrls.forEach(url => {
+      const img = document.createElement("img");
+      img.src = url;
+      bubble.appendChild(img);
+    });
+  }
+
+  if (content) {
+    const textNode = document.createElement("span");
+    textNode.innerHTML = content
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br>");
+    bubble.appendChild(textNode);
+  }
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+
+  const msgs = document.getElementById("chat-messages");
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  return bubble;
+}
+
+function appendTyping() {
+  const wrap = document.createElement("div");
+  wrap.className = "bubble-wrap ai";
+  wrap.id = "typing-bubble";
+  wrap.innerHTML = `
+    <div class="bubble-avatar">🤖</div>
+    <div class="bubble" style="color:#aaa">
+      <span class="typing-dot">●</span>
+      <span class="typing-dot">●</span>
+      <span class="typing-dot">●</span>
+    </div>
+  `;
+  const msgs = document.getElementById("chat-messages");
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  return wrap;
+}
+
+async function sendMessage() {
+  const textEl = document.getElementById("chat-text");
+  const text   = textEl.value.trim();
+  if (!text && pendingImages.length === 0) return;
+  if (!apiKey) { alert("请先填入 OpenAI API Key"); return; }
+
+  const btn = document.getElementById("send-btn");
+  btn.disabled = true;
+
+  const images    = [...pendingImages];
+  const imageUrls = images.map(i => i.dataUrl);
+  appendBubble("user", text, imageUrls);
+
+  textEl.value = ""; pendingImages = []; renderImagePreviews();
+
+  const userContent = [];
+  if (text) userContent.push({ type: "text", text });
+  images.forEach(img => userContent.push({
+    type: "image_url",
+    image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+  }));
+
+  chatHistory.push({ role: "user", content: userContent });
+  const typing = appendTyping();
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: AI_SYSTEM_PROMPT }, ...chatHistory],
+        tools: AI_TOOLS,
+        tool_choice: "auto",
+        max_tokens: 1400,
+      }),
+    });
+
+    typing.remove();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      appendBubble("ai", `❌ 请求失败：${err.error?.message || "HTTP " + res.status}`);
+      btn.disabled = false; return;
+    }
+
+    const data    = await res.json();
+    const msg     = data.choices?.[0]?.message || {};
+    const content = msg.content || "";
+    const calls   = msg.tool_calls || [];
+
+    // add assistant turn to history (full, with tool_calls if any)
+    chatHistory.push({
+      role: "assistant",
+      content: content || null,
+      ...(calls.length ? { tool_calls: calls } : {}),
+    });
+
+    // show text bubble first
+    if (content) appendBubble("ai", content);
+
+    // handle tool calls
+    calls.forEach(call => {
+      if (call.function?.name !== "save_foods_to_library") return;
+      try {
+        const args  = JSON.parse(call.function.arguments);
+        const saved = executeLibrarySave(args.foods || []);
+
+        // add tool result to history so future turns have context
+        chatHistory.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: JSON.stringify({ status: "saved", count: saved.length, names: saved.map(f => f.name) }),
+        });
+
+        if (saved.length) appendSavedCard(saved);
+      } catch (e) {
+        console.warn("Tool call parse error:", e);
+      }
+    });
+
+    // fallback if AI returned neither text nor tool call
+    if (!content && !calls.length) appendBubble("ai", "（无回复）");
+
+  } catch (e) {
+    typing.remove();
+    appendBubble("ai", `❌ 网络错误：${e.message}`);
+  }
+
+  btn.disabled = false;
+}
+
+function executeLibrarySave(foods) {
+  const saved = [];
+  foods.forEach(f => {
+    if (!f.name || f.cal == null) return;
+    const entry = {
+      name:    f.name.trim(),
+      cal:     +f.cal     || 0,
+      protein: +f.protein || 0,
+      carbs:   +f.carbs   || 0,
+      fat:     +f.fat     || 0,
+      unit:    f.unit === "ml" ? "ml" : "g",
+      note:    f.note || "",
+      custom:  true,
+    };
+    const idx = customFoods.findIndex(c => c.name.toLowerCase() === entry.name.toLowerCase());
+    if (idx >= 0) customFoods[idx] = entry;
+    else customFoods.push(entry);
+    saved.push(entry);
+  });
+  if (saved.length) { saveCustomFoods(); updateLibTabCount(); }
+  return saved;
+}
+
+function appendSavedCard(foods) {
+  const empty = document.getElementById("chat-empty");
+  if (empty) empty.remove();
+
+  const wrap = document.createElement("div");
+  wrap.className = "bubble-wrap ai";
+
+  const avatar = document.createElement("div");
+  avatar.className = "bubble-avatar";
+  avatar.textContent = "🤖";
+
+  const card = document.createElement("div");
+  card.className = "saved-card";
+  card.innerHTML = `
+    <div class="saved-card-header">
+      <span class="saved-card-title">✅ 已保存到食物库（${foods.length} 项）</span>
+      <button class="view-lib-btn">查看食物库</button>
+    </div>
+    ${foods.map(f => `
+      <div class="saved-food-row">
+        <span>
+          <span class="saved-food-name">${esc(f.name)}</span>
+          ${f.note ? `<span class="saved-food-note">${esc(f.note)}</span>` : ""}
+        </span>
+        <span class="saved-food-macros">
+          ${f.cal} kcal &nbsp;蛋白 ${f.protein}g &nbsp;碳水 ${f.carbs}g &nbsp;脂肪 ${f.fat}g
+          <span style="color:#ccc"> /100${f.unit}</span>
+        </span>
+      </div>
+    `).join("")}
+  `;
+
+  card.querySelector(".view-lib-btn").addEventListener("click", () => setMode("lib"));
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(card);
+
+  const msgs = document.getElementById("chat-messages");
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ===================== FITNESS PLAN =====================
+let fitnessGoals = loadFitnessGoals();
+let weightLogs   = loadWeightLogs();
+let fitWeekStart = getWeekStart(todayStr());
+
+function loadFitnessGoals() {
+  try { return JSON.parse(localStorage.getItem("fitness_goals") || "{}"); } catch { return {}; }
+}
+function saveFitnessGoals() {
+  localStorage.setItem("fitness_goals", JSON.stringify(fitnessGoals));
+  cloudSave("fitness_goals", fitnessGoals);
+}
+
+function loadWeightLogs() {
+  try { return JSON.parse(localStorage.getItem("weight_logs") || "{}"); } catch { return {}; }
+}
+function saveWeightLogs() {
+  localStorage.setItem("weight_logs", JSON.stringify(weightLogs));
+  cloudSave("weight_logs", weightLogs);
+}
+
+function getPersonFitnessGoals(p) {
+  if (!fitnessGoals[p]) fitnessGoals[p] = { cal: 2000, protein: 75, carbs: 250, fat: 60, weightTarget: 0 };
+  return fitnessGoals[p];
+}
+
+function getWeekStart(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return d.toISOString().slice(0, 10);
+}
+
+function getWeekDays(weekStart) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart + "T00:00:00");
+    d.setDate(d.getDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+function getDayNutrition(dateStr, p) {
+  const pday = data[dateStr]?.[p];
+  if (!pday) return { cal: 0, protein: 0, carbs: 0, fat: 0, hasData: false };
+  let cal = 0, protein = 0, carbs = 0, fat = 0;
+  pday.meals.forEach(m => m.items.forEach(it => {
+    const n = itemNutrition(it);
+    cal += n.cal; protein += n.protein; carbs += n.carbs; fat += n.fat;
+  }));
+  return { cal, protein, carbs, fat, hasData: cal > 0 };
+}
+
+let weightTrendRange = 30; // days: 30, 90, 180, 0=all
+
+function renderFitness() {
+  const p  = currentPerson;
+  const g  = getPersonFitnessGoals(p);
+
+  document.querySelectorAll(".person-tab").forEach((tab, i) => {
+    tab.classList.toggle("active", i === p);
+  });
+  const td = todayStr();
+
+  // populate goal inputs
+  document.getElementById("fit-goal-cal").value    = g.cal;
+  document.getElementById("fit-goal-prot").value   = g.protein;
+  document.getElementById("fit-goal-carb").value   = g.carbs;
+  document.getElementById("fit-goal-fat").value    = g.fat;
+  document.getElementById("fit-goal-weight").value = g.weightTarget || "";
+
+  ["fit-goal-cal","fit-goal-prot","fit-goal-carb","fit-goal-fat","fit-goal-weight"].forEach(id => {
+    document.getElementById(id).onchange = () => {
+      g.cal          = parseFloat(document.getElementById("fit-goal-cal").value)    || 2000;
+      g.protein      = parseFloat(document.getElementById("fit-goal-prot").value)   || 75;
+      g.carbs        = parseFloat(document.getElementById("fit-goal-carb").value)   || 250;
+      g.fat          = parseFloat(document.getElementById("fit-goal-fat").value)    || 60;
+      g.weightTarget = parseFloat(document.getElementById("fit-goal-weight").value) || 0;
+      saveFitnessGoals();
+      MACRO_GOALS.cal = g.cal; MACRO_GOALS.protein = g.protein;
+      MACRO_GOALS.carbs = g.carbs; MACRO_GOALS.fat = g.fat;
+      drawWeekSection(p, g);
+      drawWeightTrend(p, g);
+    };
+  });
+
+  // week nav label
+  const days = getWeekDays(fitWeekStart);
+  const fmtD = s => new Date(s + "T00:00:00").toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+  document.getElementById("week-label-fit").textContent = `${fmtD(days[0])} — ${fmtD(days[6])}`;
+  document.getElementById("week-next-fit").disabled = fitWeekStart >= getWeekStart(td);
+
+  // today weight quick entry
+  const todayInp = document.getElementById("today-weight-inp");
+  const todayLabel = document.getElementById("today-weight-date");
+  todayInp.value = weightLogs[p]?.[td] ?? "";
+  todayLabel.textContent = new Date(td + "T00:00:00").toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" });
+  todayInp.onchange = () => {
+    if (!weightLogs[p]) weightLogs[p] = {};
+    const v = parseFloat(todayInp.value);
+    if (!isNaN(v) && v > 0) weightLogs[p][td] = v;
+    else delete weightLogs[p][td];
+    saveWeightLogs();
+    drawWeightTrend(p, g);
+  };
+
+  // range selector
+  document.querySelectorAll(".range-btn").forEach(btn => {
+    btn.classList.toggle("active", +btn.dataset.range === weightTrendRange);
+    btn.onclick = () => {
+      weightTrendRange = +btn.dataset.range;
+      document.querySelectorAll(".range-btn").forEach(b => b.classList.toggle("active", b === btn));
+      drawWeightTrend(p, g);
+    };
+  });
+
+  drawWeekSection(p, g);
+  drawWeightTrend(p, g);
+}
+
+function drawWeekSection(p, g) {
+  const days    = getWeekDays(fitWeekStart);
+  const DAY_LBL = ["一","二","三","四","五","六","日"];
+  const nutData = days.map(d => getDayNutrition(d, p));
+  drawBarChart(document.getElementById("cal-chart"), nutData.map(n => n.cal), g.cal, DAY_LBL);
+  renderAchievementTable(nutData, g);
+  renderWeeklySummary(nutData, g, days.map(d => weightLogs[p]?.[d] ?? null));
+}
+
+// ---------- LONG-TERM WEIGHT TREND ----------
+function drawWeightTrend(p, g) {
+  // collect all entries for this person
+  const logs = weightLogs[p] || {};
+  let entries = Object.entries(logs)
+    .map(([date, weight]) => ({ date, weight }))
+    .filter(e => e.weight > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (weightTrendRange > 0) {
+    const cutoff = new Date(todayStr() + "T00:00:00");
+    cutoff.setDate(cutoff.getDate() - weightTrendRange);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    entries = entries.filter(e => e.date >= cutoffStr);
+  }
+
+  const canvas = document.getElementById("weight-trend-chart");
+  drawWeightTrendCanvas(canvas, entries, g.weightTarget || null);
+}
+
+function drawWeightTrendCanvas(canvas, entries, goalWeight) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  const pad = { top: 28, right: 16, bottom: 38, left: 50 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!entries.length) {
+    ctx.fillStyle = "#ccc"; ctx.font = "14px -apple-system,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("暂无体重记录，在上方输入今日体重开始记录", W / 2, H / 2);
+    return;
+  }
+
+  const weights = entries.map(e => e.weight);
+  const allRef  = goalWeight ? [...weights, goalWeight] : weights;
+  const minV = Math.min(...allRef) * 0.988;
+  const maxV = Math.max(...allRef) * 1.012;
+  const n = entries.length;
+
+  const toX = i => pad.left + (n === 1 ? cW / 2 : (i / (n - 1)) * cW);
+  const toY = v => pad.top + cH - ((v - minV) / (maxV - minV)) * cH;
+
+  // grid
+  for (let i = 0; i <= 4; i++) {
+    const val = minV + (i / 4) * (maxV - minV);
+    const y   = toY(val);
+    ctx.strokeStyle = "#f0f0f0"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke();
+    ctx.fillStyle = "#c0c0c0"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "right";
+    ctx.fillText(val.toFixed(1), pad.left - 5, y + 3);
+  }
+
+  // goal line
+  if (goalWeight && goalWeight > 0) {
+    const gy = toY(Math.max(minV, Math.min(maxV, goalWeight)));
+    ctx.save(); ctx.strokeStyle = "#62b073"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(pad.left + cW, gy); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = "#62b073"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(`目标 ${goalWeight}kg`, pad.left + 4, gy - 5);
+  }
+
+  // area fill under line
+  if (n > 1) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(entries[0].weight));
+    entries.forEach((e, i) => ctx.lineTo(toX(i), toY(e.weight)));
+    ctx.lineTo(toX(n - 1), pad.top + cH);
+    ctx.lineTo(toX(0), pad.top + cH);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(90,127,181,0.08)";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // connecting line
+  ctx.strokeStyle = "#5a7fb5"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  entries.forEach((e, i) => i === 0 ? ctx.moveTo(toX(i), toY(e.weight)) : ctx.lineTo(toX(i), toY(e.weight)));
+  ctx.stroke();
+
+  // x-axis labels (adaptive density)
+  const step = n <= 14 ? 1 : n <= 42 ? Math.ceil(n / 10) : n <= 90 ? 7 : 14;
+  entries.forEach((e, i) => {
+    if (i % step !== 0 && i !== n - 1) return;
+    const d = new Date(e.date + "T00:00:00");
+    const lbl = d.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+    ctx.fillStyle = "#bbb"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(lbl, toX(i), pad.top + cH + 20);
+  });
+
+  // dots (show if ≤30 points, else just endpoints)
+  const showAllDots = n <= 30;
+  entries.forEach((e, i) => {
+    const x = toX(i), y = toY(e.weight);
+    if (!showAllDots && i !== 0 && i !== n - 1) return;
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#5a7fb5"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, showAllDots ? 3.5 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (showAllDots || i === 0 || i === n - 1) {
+      ctx.fillStyle = "#444"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(e.weight.toFixed(1), x, y - 9);
+    }
+  });
+}
+
+// ---------- BAR CHART ----------
+function drawBarChart(canvas, values, goal, labels) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  const pad = { top: 28, right: 14, bottom: 34, left: 44 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top  - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const maxVal = Math.max(goal * 1.3, ...values, 10);
+  const n = values.length;
+  const slot = cW / n;
+  const bW   = slot * 0.54;
+
+  // grid + y-labels
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + cH - (i / 4) * cH;
+    ctx.strokeStyle = "#f0f0f0"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke();
+    ctx.fillStyle = "#c0c0c0"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "right";
+    ctx.fillText(Math.round((i / 4) * maxVal), pad.left - 5, y + 3);
+  }
+
+  // goal line
+  if (goal > 0) {
+    const gy = pad.top + cH - (goal / maxVal) * cH;
+    ctx.save(); ctx.strokeStyle = "#e88"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(pad.left + cW, gy); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = "#e88"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(`目标 ${goal}`, pad.left + 4, gy - 5);
+  }
+
+  // bars
+  values.forEach((v, i) => {
+    const x  = pad.left + i * slot + (slot - bW) / 2;
+    const bH = v > 0 ? Math.max((v / maxVal) * cH, 2) : 0;
+    const y  = pad.top + cH - bH;
+
+    ctx.fillStyle = v <= 0 ? "#f0f0f0"
+      : v >= goal * 0.9 && v <= goal * 1.12 ? "#62b073"
+      : v > goal * 1.12 ? "#e07070"
+      : "#7aaad5";
+
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, bW, bH, [3, 3, 0, 0]);
+    else ctx.rect(x, y, bW, bH);
+    ctx.fill();
+
+    if (v > 0) {
+      ctx.fillStyle = "#777"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(Math.round(v), x + bW / 2, y - 4);
+    }
+
+    ctx.fillStyle = "#bbb"; ctx.font = "11px -apple-system,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(labels[i], x + bW / 2, pad.top + cH + 18);
+  });
+}
+
+// ---------- ACHIEVEMENT TABLE ----------
+function renderAchievementTable(nutData, g) {
+  const metrics = [
+    { key: "cal",     label: "热量",   goal: g.cal,     mode: "range" },
+    { key: "protein", label: "蛋白质", goal: g.protein,  mode: "min"   },
+    { key: "carbs",   label: "碳水",   goal: g.carbs,   mode: "max"   },
+    { key: "fat",     label: "脂肪",   goal: g.fat,     mode: "max"   },
+  ];
+
+  const unit = { cal:"kcal", protein:"g", carbs:"g", fat:"g" };
+
+  document.getElementById("achieve-tbody").innerHTML = metrics.map(m => {
+    const cells = nutData.map(n => {
+      const v = n[m.key];
+      if (!n.hasData) return `<td><span class="ach-pip none">—</span></td>`;
+      const pct = m.goal > 0 ? v / m.goal : 0;
+      let cls;
+      if      (m.mode === "range") cls = pct >= 0.88 && pct <= 1.12 ? "good" : pct > 1.12 ? "over" : "low";
+      else if (m.mode === "min")   cls = pct >= 0.88 ? "good" : "low";
+      else                         cls = pct <= 1.12 ? "good" : "over";
+      const icon = cls === "good" ? "✓" : cls === "over" ? "✗" : "△";
+      return `<td title="${Math.round(v)}${unit[m.key]} / 目标${m.goal}${unit[m.key]}"><span class="ach-pip ${cls}">${icon}</span></td>`;
+    }).join("");
+    return `<tr><td class="ach-row-label">${m.label}</td>${cells}</tr>`;
+  }).join("");
+}
+
+// ---------- WEEKLY TEXT SUMMARY ----------
+function renderWeeklySummary(nutData, g, wVals) {
+  const logged = nutData.filter(n => n.hasData);
+  const el     = document.getElementById("weekly-summary-text");
+
+  if (!logged.length) {
+    el.innerHTML = '<span style="color:#ccc">本周暂无饮食记录</span>';
+    return;
+  }
+
+  const avgCal  = Math.round(logged.reduce((s, n) => s + n.cal,     0) / logged.length);
+  const avgProt = (logged.reduce((s, n) => s + n.protein, 0) / logged.length).toFixed(1);
+  const onCal   = logged.filter(n => n.cal >= g.cal * 0.88 && n.cal <= g.cal * 1.12).length;
+  const onProt  = logged.filter(n => n.protein >= g.protein * 0.88).length;
+
+  const calColor = onCal >= logged.length * 0.7 ? "good" : "warn";
+  const valid    = wVals.filter(v => v != null && v > 0);
+
+  let html = `已记录 <span class="summary-stat">${logged.length}</span> 天 &nbsp;·&nbsp; `;
+  html += `平均热量 <span class="summary-stat ${calColor}">${avgCal} kcal</span>（目标 ${g.cal}）&nbsp;·&nbsp; `;
+  html += `平均蛋白质 <span class="summary-stat">${avgProt}g</span> &nbsp;·&nbsp; `;
+  html += `热量达标 <span class="summary-stat ${calColor}">${onCal}/${logged.length} 天</span>，`;
+  html += `蛋白质达标 <span class="summary-stat">${onProt}/${logged.length} 天</span>。`;
+
+  if (valid.length >= 2) {
+    const delta = (valid[valid.length - 1] - valid[0]).toFixed(1);
+    const dir   = +delta > 0 ? "↑" : +delta < 0 ? "↓" : "→";
+    const wColor = g.weightTarget && valid[valid.length - 1] <= g.weightTarget ? "good" : "";
+    html += `<br>体重：${valid[0].toFixed(1)} → <span class="summary-stat ${wColor}">${valid[valid.length-1].toFixed(1)} kg</span>，`;
+    html += `本周变化 ${dir} ${Math.abs(delta)} kg`;
+    if (g.weightTarget) html += `（目标 ${g.weightTarget} kg）`;
+    html += "。";
+  }
+
+  el.innerHTML = html;
+}
+
+// ---------- WEEK NAV ----------
+document.getElementById("week-prev-fit").addEventListener("click", () => {
+  const d = new Date(fitWeekStart + "T00:00:00");
+  d.setDate(d.getDate() - 7);
+  fitWeekStart = d.toISOString().slice(0, 10);
+  renderFitness();
+});
+
+document.getElementById("week-next-fit").addEventListener("click", () => {
+  const d = new Date(fitWeekStart + "T00:00:00");
+  d.setDate(d.getDate() + 7);
+  const next = d.toISOString().slice(0, 10);
+  if (next <= getWeekStart(todayStr())) { fitWeekStart = next; renderFitness(); }
+});
+
+// ===================== CLOUD SYNC =====================
+let sb = null;
+const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names"];
+
+function setSyncStatus(status) {
+  const dot = document.getElementById("sync-dot");
+  if (!dot) return;
+  dot.dataset.status = status;
+  const labels = { off: "☁", syncing: "↻", synced: "☁", error: "☁" };
+  dot.textContent = labels[status] || "☁";
+}
+
+function cloudSave(key, value) {
+  if (!sb) return;
+  setSyncStatus("syncing");
+  sb.from("kv_store")
+    .upsert({ key, value, updated_at: new Date().toISOString() })
+    .then(({ error }) => setSyncStatus(error ? "error" : "synced"))
+    .catch(() => setSyncStatus("error"));
+}
+
+async function cloudPull() {
+  if (!sb) return;
+  setSyncStatus("syncing");
+  try {
+    const { data: rows, error } = await sb.from("kv_store").select("key,value").in("key", SYNC_KEYS);
+    if (error) throw error;
+    (rows || []).forEach(row => localStorage.setItem(row.key, JSON.stringify(row.value)));
+    data         = loadAll();
+    customFoods  = loadCustomFoods();
+    fitnessGoals = loadFitnessGoals();
+    weightLogs   = loadWeightLogs();
+    personNames  = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
+    document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
+    updateLibTabCount();
+    render();
+    if (currentMode === "fitness") renderFitness();
+    if (currentMode === "lib") renderLib();
+    setSyncStatus("synced");
+  } catch { setSyncStatus("error"); }
+}
+
+async function cloudPush() {
+  if (!sb) return;
+  setSyncStatus("syncing");
+  const pairs = [
+    { key: "diet_data2",   value: data },
+    { key: "custom_foods", value: customFoods },
+    { key: "fitness_goals",value: fitnessGoals },
+    { key: "weight_logs",  value: weightLogs },
+    { key: "person_names", value: personNames },
+  ];
+  try {
+    for (const p of pairs) {
+      await sb.from("kv_store").upsert({ ...p, updated_at: new Date().toISOString() });
+    }
+    setSyncStatus("synced");
+    return true;
+  } catch { setSyncStatus("error"); return false; }
+}
+
+function subscribeRealtime() {
+  if (!sb) return;
+  sb.channel("kv_changes")
+    .on("postgres_changes", { event: "*", schema: "public", table: "kv_store" }, payload => {
+      const { key, value } = payload.new || {};
+      if (!key || !SYNC_KEYS.includes(key)) return;
+      localStorage.setItem(key, JSON.stringify(value));
+      if (key === "diet_data2")    { data         = loadAll();          render(); }
+      if (key === "custom_foods")  { customFoods  = loadCustomFoods();  updateLibTabCount(); if (currentMode === "lib") renderLib(); }
+      if (key === "fitness_goals") { fitnessGoals = loadFitnessGoals(); if (currentMode === "fitness") renderFitness(); }
+      if (key === "weight_logs")   { weightLogs   = loadWeightLogs();   if (currentMode === "fitness") renderFitness(); }
+      if (key === "person_names")  {
+        personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
+        document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
+      }
+    })
+    .subscribe();
+}
+
+function initSupabase(url, key) {
+  try {
+    sb = window.supabase.createClient(url, key);
+    subscribeRealtime();
+    return true;
+  } catch { sb = null; return false; }
+}
+
+// ===== CLOUD MODAL UI =====
+document.getElementById("cloud-btn").addEventListener("click", () => {
+  const modal = document.getElementById("cloud-modal");
+  modal.style.display = "flex";
+  document.getElementById("sb-url-input").value = localStorage.getItem("sb_url") || "";
+  document.getElementById("sb-key-input").value = localStorage.getItem("sb_key") || "";
+  document.getElementById("cloud-status-msg").textContent = "";
+  document.getElementById("cloud-status-msg").className = "cloud-status-msg";
+});
+
+document.getElementById("cloud-modal-close").addEventListener("click", () => {
+  document.getElementById("cloud-modal").style.display = "none";
+});
+document.getElementById("cloud-modal").addEventListener("click", e => {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = "none";
+});
+
+document.getElementById("cloud-connect-btn").addEventListener("click", async () => {
+  const url = document.getElementById("sb-url-input").value.trim();
+  const key = document.getElementById("sb-key-input").value.trim();
+  const msg = document.getElementById("cloud-status-msg");
+  if (!url || !key) { msg.textContent = "请填写 URL 和 Key"; msg.className = "cloud-status-msg err"; return; }
+  msg.textContent = "连接中…"; msg.className = "cloud-status-msg";
+  localStorage.setItem("sb_url", url);
+  localStorage.setItem("sb_key", key);
+  const ok = initSupabase(url, key);
+  if (!ok) { msg.textContent = "初始化失败，请检查 URL 和 Key"; msg.className = "cloud-status-msg err"; return; }
+  await cloudPull();
+  const status = document.getElementById("sync-dot").dataset.status;
+  if (status === "synced") {
+    msg.textContent = "✓ 连接成功，数据已同步"; msg.className = "cloud-status-msg ok";
+  } else {
+    msg.textContent = "连接失败，请检查表是否已创建，或 URL/Key 是否正确"; msg.className = "cloud-status-msg err";
+  }
+});
+
+document.getElementById("cloud-disconnect-btn").addEventListener("click", () => {
+  sb = null;
+  localStorage.removeItem("sb_url");
+  localStorage.removeItem("sb_key");
+  setSyncStatus("off");
+  const msg = document.getElementById("cloud-status-msg");
+  msg.textContent = "已断开云同步"; msg.className = "cloud-status-msg";
+});
+
+document.getElementById("cloud-push-btn").addEventListener("click", async () => {
+  const msg = document.getElementById("cloud-status-msg");
+  if (!sb) { msg.textContent = "请先连接 Supabase"; msg.className = "cloud-status-msg err"; return; }
+  msg.textContent = "上传中…"; msg.className = "cloud-status-msg";
+  const ok = await cloudPush();
+  msg.textContent = ok ? "✓ 本地数据已上传到云端" : "上传失败，请重试";
+  msg.className = ok ? "cloud-status-msg ok" : "cloud-status-msg err";
+});
+
+// ===================== INIT =====================
+personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
+document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
+initAIPanel();
+updateLibTabCount();
+// sync diary macro-goal bars from saved fitness goals
+(function syncMacroGoals() {
+  const g = getPersonFitnessGoals(currentPerson);
+  MACRO_GOALS.cal     = g.cal;
+  MACRO_GOALS.protein = g.protein;
+  MACRO_GOALS.carbs   = g.carbs;
+  MACRO_GOALS.fat     = g.fat;
+})();
+render();
+
+// auto-reconnect if credentials saved
+(function autoConnect() {
+  const url = localStorage.getItem("sb_url");
+  const key = localStorage.getItem("sb_key");
+  if (url && key) {
+    initSupabase(url, key);
+    cloudPull();
+  }
+})();
+</script>
+
+
+</body>
+</html>
