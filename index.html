@@ -478,6 +478,35 @@
     .mode-tab:hover { color: #555; }
     .mode-tab.active { color: #2d7dd2; border-bottom-color: #2d7dd2; }
 
+    /* ===== POOP PANEL ===== */
+    #poop-panel { padding: 16px; }
+    .poop-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .poop-date-label { font-size: 15px; font-weight: 600; color: #333; }
+    .poop-count-badge { background: #fff3e0; color: #e65100; font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+    .poop-add-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .poop-time-input { border: 1px solid #e0e0e0; border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 110px; outline: none; }
+    .poop-note-input { flex: 1; min-width: 120px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; }
+    .poop-time-input:focus, .poop-note-input:focus { border-color: #2d7dd2; }
+    .poop-add-btn { background: #2d7dd2; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .poop-add-btn:hover { background: #1a6bbf; }
+    .poop-list { display: flex; flex-direction: column; gap: 8px; }
+    .poop-item { display: flex; align-items: center; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 10px; padding: 10px 14px; gap: 12px; }
+    .poop-item-icon { font-size: 22px; flex-shrink: 0; }
+    .poop-item-time { font-size: 15px; font-weight: 600; color: #333; min-width: 48px; }
+    .poop-item-note { font-size: 14px; color: #666; flex: 1; }
+    .poop-item-del { background: none; border: none; color: #ccc; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .poop-item-del:hover { color: #e44; }
+    .poop-empty { text-align: center; color: #bbb; font-size: 14px; padding: 40px 0; }
+
+    /* poop weekly grid in fitness panel */
+    .poop-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
+    .poop-week-cell { display: flex; flex-direction: column; align-items: center; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 8px; padding: 8px 4px 6px; }
+    .poop-week-cell.today { border-color: #2d7dd2; background: #f0f6ff; }
+    .poop-week-cell .pwc-day { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+    .poop-week-cell.today .pwc-day { color: #2d7dd2; font-weight: 600; }
+    .poop-week-cell .pwc-emoji { font-size: 18px; line-height: 1; min-height: 22px; }
+    .poop-week-cell .pwc-count { font-size: 12px; font-weight: 600; color: #555; margin-top: 3px; }
+
     /* ===== CLOUD SYNC BUTTON ===== */
     .cloud-btn {
       background: none; border: none; cursor: pointer;
@@ -829,10 +858,11 @@
       background: #fafafa;
     }
 
-    .lib-table thead th:first-child { text-align: left; width: 30%; }
-    .lib-table thead th.col-unit { width: 7%; }
-    .lib-table thead th.col-num  { width: 12%; }
-    .lib-table thead th.col-del  { width: 6%; }
+    .lib-table thead th:first-child { text-align: left; width: 26%; }
+    .lib-table thead th.col-unit    { width: 7%; }
+    .lib-table thead th.col-serving { width: 10%; }
+    .lib-table thead th.col-num     { width: 11%; }
+    .lib-table thead th.col-del     { width: 6%; }
 
     .lib-table tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.1s; }
     .lib-table tbody tr:last-child { border-bottom: none; }
@@ -1189,6 +1219,7 @@
     <div class="mode-tab" data-mode="ai">🤖 AI 估算</div>
     <div class="mode-tab" data-mode="lib">📚 食物库<span class="lib-count" id="lib-tab-count"></span></div>
     <div class="mode-tab" data-mode="fitness">💪 饮食计划</div>
+    <div class="mode-tab" data-mode="poop">💩 大便</div>
   </div>
   <div class="person-tabs" id="person-tabs">
     <div class="person-tab active" data-p="0">
@@ -1324,6 +1355,12 @@
     <div class="weekly-summary-box" id="weekly-summary-text" style="margin-top:12px"></div>
   </div>
 
+  <!-- Weekly poop section -->
+  <div class="fit-section">
+    <div class="fit-section-title">💩 大便记录</div>
+    <div class="poop-week-grid" id="poop-week-grid"></div>
+  </div>
+
   <!-- Long-term weight trend section -->
   <div class="fit-section">
     <div class="fit-week-header">
@@ -1359,10 +1396,11 @@
         <tr>
           <th>食物名称</th>
           <th class="col-unit">单位</th>
-          <th class="col-num">热量/100</th>
-          <th class="col-num" style="color:#b0c4de">蛋白质/100g</th>
-          <th class="col-num" style="color:#c4b0a0">碳水/100g</th>
-          <th class="col-num" style="color:#b0c4b0">脂肪/100g</th>
+          <th class="col-serving">每份量</th>
+          <th class="col-num">热量/份</th>
+          <th class="col-num" style="color:#b0c4de">蛋白质/份</th>
+          <th class="col-num" style="color:#c4b0a0">碳水/份</th>
+          <th class="col-num" style="color:#b0c4b0">脂肪/份</th>
           <th class="col-del"></th>
         </tr>
       </thead>
@@ -1370,6 +1408,20 @@
     </table>
     <div class="lib-empty" id="lib-empty" style="display:none">还没有保存任何自定义食物</div>
   </div>
+</div>
+
+<!-- POOP PANEL -->
+<div id="poop-panel" style="display:none">
+  <div class="poop-header">
+    <div class="poop-date-label" id="poop-date-label"></div>
+    <div class="poop-count-badge" id="poop-count-badge">今日 0 次</div>
+  </div>
+  <div class="poop-add-bar">
+    <input type="time" id="poop-time-input" class="poop-time-input">
+    <input type="text" id="poop-note-input" class="poop-note-input" placeholder="备注（可选）" maxlength="50">
+    <button class="poop-add-btn" id="poop-add-btn">+ 记录</button>
+  </div>
+  <div class="poop-list" id="poop-list"></div>
 </div>
 
 <!-- AI PANEL -->
@@ -1587,7 +1639,8 @@ let data = loadAll();
 let personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 function loadAll() {
@@ -1621,7 +1674,7 @@ function getPersonDay(date, p) {
 }
 
 function newItem() {
-  return { id: Date.now() + Math.random(), food:"", weight:"", calPer:"", protein:"", carbs:"", fat:"" };
+  return { id: Date.now() + Math.random(), food:"", weight:"", calPer:"", protein:"", carbs:"", fat:"", unit:"g" };
 }
 
 // ===================== CUSTOM FOOD DB =====================
@@ -1640,7 +1693,9 @@ function maybeSaveCustomFood(item) {
   const name = item.food.trim();
   if (!name || item.calPer === "") return false;
   const toNum = v => (v === "" || isNaN(parseFloat(v))) ? 0 : parseFloat(v);
-  const entry = { name, cal: toNum(item.calPer), protein: toNum(item.protein), carbs: toNum(item.carbs), fat: toNum(item.fat), unit: "g", custom: true };
+  const unit    = item.unit || "g";
+  const serving = unit === "个" ? 1 : 100;
+  const entry = { name, cal: toNum(item.calPer), protein: toNum(item.protein), carbs: toNum(item.carbs), fat: toNum(item.fat), unit, serving, custom: true };
   const idx = customFoods.findIndex(f => f.name.toLowerCase() === name.toLowerCase());
   if (idx >= 0) customFoods[idx] = entry;
   else customFoods.push(entry);
@@ -1669,19 +1724,22 @@ function itemNutrition(item) {
   const cp  = parseFloat(item.calPer);
   if (isNaN(cp)) return { cal:0, protein:0, carbs:0, fat:0, source:"none" };
 
+  const food     = item.food ? lookupFood(item.food) : null;
+  const serving  = food?.unit === "个" ? 1 : (food?.serving || 100);
+
   const w = parseFloat(item.weight);
-  // weight blank/0 → treat inputs as absolute totals (multiply by 1, i.e. w=100)
-  const effectiveW = (isNaN(w) || w <= 0) ? 100 : w;
+  // weight blank/0 → treat as 1 serving
+  const effectiveW = (isNaN(w) || w <= 0) ? serving : w;
 
   const pp  = parseFloat(item.protein);
   const cbp = parseFloat(item.carbs);
   const fp  = parseFloat(item.fat);
 
   return {
-    cal:     Math.round(effectiveW * cp  / 100),
-    protein: isNaN(pp)  ? 0 : Math.round(effectiveW * pp  / 10) / 10,
-    carbs:   isNaN(cbp) ? 0 : Math.round(effectiveW * cbp / 10) / 10,
-    fat:     isNaN(fp)  ? 0 : Math.round(effectiveW * fp  / 10) / 10,
+    cal:     Math.round(effectiveW * cp  / serving),
+    protein: isNaN(pp)  ? 0 : Math.round(effectiveW * pp  / serving * 10) / 10,
+    carbs:   isNaN(cbp) ? 0 : Math.round(effectiveW * cbp / serving * 10) / 10,
+    fat:     isNaN(fp)  ? 0 : Math.round(effectiveW * fp  / serving * 10) / 10,
     source:  "estimated",
   };
 }
@@ -1749,10 +1807,10 @@ function render() {
             <th class="th-food">食物</th>
             <th class="th-weight" style="text-align:right">重量</th>
             <th class="th-unit"></th>
-            <th class="th-cal">热量<span class="th-unit-label">/100</span></th>
-            <th class="th-prot">蛋白<span class="th-unit-label">/100g</span></th>
-            <th class="th-carb">碳水<span class="th-unit-label">/100g</span></th>
-            <th class="th-fat">脂肪<span class="th-unit-label">/100g</span></th>
+            <th class="th-cal">热量<span class="th-unit-label">/份</span></th>
+            <th class="th-prot">蛋白<span class="th-unit-label">/份</span></th>
+            <th class="th-carb">碳水<span class="th-unit-label">/份</span></th>
+            <th class="th-fat">脂肪<span class="th-unit-label">/份</span></th>
             <th class="th-del"></th>
           </tr>
         </thead>
@@ -1810,8 +1868,19 @@ function renderRow(item, mi, ii) {
   const tr = document.createElement("tr");
   const pday = getPersonDay(currentDate, currentPerson);
   const meal = pday.meals[mi];
-  const unitLabel = getUnit(item);
-  const isSaved = item.food ? !!lookupFood(item.food) : false;
+  const libFood = item.food ? lookupFood(item.food) : null;
+  const unitLabel = libFood ? (libFood.unit || "g") : (item.unit || "g");
+  const isSaved = !!libFood;
+
+  const unitCell = isSaved
+    ? `<td class="td-unit" style="font-size:11px;color:#ccc;padding:0 4px">${unitLabel}</td>`
+    : `<td class="td-unit" style="padding:0 2px">
+        <select class="item-unit-sel" style="border:none;background:transparent;font-size:11px;color:#aaa;outline:none;cursor:pointer;width:100%">
+          <option value="g"  ${(item.unit||"g")==="g"  ?"selected":""}>g</option>
+          <option value="ml" ${(item.unit||"g")==="ml" ?"selected":""}>ml</option>
+          <option value="个" ${(item.unit||"g")==="个" ?"selected":""}>个</option>
+        </select>
+      </td>`;
 
   tr.innerHTML = `
     <td class="td-food">
@@ -1821,11 +1890,11 @@ function renderRow(item, mi, ii) {
       </div>
     </td>
     <td style="text-align:right;padding-right:2px">
-      <input class="weight-input" type="number" min="0" value="${esc(item.weight)}" placeholder="0" style="width:55px;text-align:right">
+      <input class="weight-input" type="number" min="0" value="${esc(item.weight)}" placeholder="${unitLabel==='个'?'个数':'0'}" style="width:55px;text-align:right">
     </td>
-    <td class="td-unit" style="font-size:11px;color:#ccc;padding:0 4px">${unitLabel}</td>
+    ${unitCell}
     <td class="th-cal">
-      <input class="nut-input cal" type="number" min="0" value="${esc(item.calPer)}" placeholder="—" title="每100${unitLabel}热量(kcal)">
+      <input class="nut-input cal" type="number" min="0" value="${esc(item.calPer)}" placeholder="—" title="每份热量(kcal)">
     </td>
     <td class="th-prot">
       <input class="nut-input prot" type="number" min="0" value="${esc(item.protein)}" placeholder="—" title="每100g蛋白质(g)">
@@ -1841,6 +1910,7 @@ function renderRow(item, mi, ii) {
 
   const foodInput   = tr.querySelector(".food-input");
   const weightInput = tr.querySelector(".weight-input");
+  const unitSel     = tr.querySelector(".item-unit-sel");
   const calInput    = tr.querySelector(".nut-input.cal");
   const protInput   = tr.querySelector(".nut-input.prot");
   const carbInput   = tr.querySelector(".nut-input.carb");
@@ -1852,6 +1922,17 @@ function renderRow(item, mi, ii) {
     protInput.value = item.protein;
     carbInput.value = item.carbs;
     fatInput.value  = item.fat;
+  }
+
+  if (unitSel) {
+    unitSel.addEventListener("change", () => {
+      item.unit = unitSel.value;
+      const wInp = tr.querySelector(".weight-input");
+      if (wInp) wInp.placeholder = item.unit === "个" ? "个数" : "0";
+      const saved = maybeSaveCustomFood(item);
+      if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
+      saveAll(); refreshMeal(mi); refreshSummary();
+    });
   }
 
   foodInput.addEventListener("input", () => {
@@ -1925,7 +2006,7 @@ function autoFillFromDB(item, tr) {
 function getUnit(item) {
   if (!item.food) return "g";
   const m = lookupFood(item.food);
-  return m ? m.unit : "g";
+  return m ? (m.unit || "g") : "g";
 }
 
 function refreshMeal(mi) {
@@ -2144,13 +2225,15 @@ let currentMode = "diary";
 function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll(".mode-tab").forEach(t => t.classList.toggle("active", t.dataset.mode === mode));
-  document.getElementById("person-tabs").style.display    = (mode === "diary" || mode === "fitness") ? "" : "none";
+  document.getElementById("person-tabs").style.display    = (mode === "diary" || mode === "fitness" || mode === "poop") ? "" : "none";
   document.querySelector(".container").style.display      = mode === "diary"   ? "" : "none";
   document.getElementById("ai-panel").style.display      = mode === "ai"      ? "" : "none";
   document.getElementById("lib-panel").style.display     = mode === "lib"     ? "" : "none";
   document.getElementById("fitness-panel").style.display = mode === "fitness" ? "" : "none";
+  document.getElementById("poop-panel").style.display    = mode === "poop"    ? "" : "none";
   if (mode === "lib")     renderLib();
   if (mode === "fitness") renderFitness();
+  if (mode === "poop")    renderPoop();
 }
 
 document.querySelectorAll(".mode-tab").forEach(tab => {
@@ -2180,13 +2263,21 @@ function renderLib() {
 function renderLibRow(food) {
   const tr = document.createElement("tr");
 
+  const currentServing = food.unit === "个" ? 1 : (food.serving || 100);
   tr.innerHTML = `
     <td><input class="lib-input name-input" type="text" value="${esc(food.name)}" placeholder="食物名称"></td>
     <td>
       <select class="lib-unit-select">
         <option value="g"  ${food.unit==="g"  ?"selected":""}>g</option>
         <option value="ml" ${food.unit==="ml" ?"selected":""}>ml</option>
+        <option value="个" ${food.unit==="个" ?"selected":""}>个</option>
       </select>
+    </td>
+    <td>
+      <input class="lib-input lib-serving-inp" type="number" min="1" step="1"
+        value="${currentServing}"
+        ${food.unit==="个" ? 'disabled style="color:#ccc"' : ''}
+        title="营养数据基于多少单位（默认100）">
     </td>
     <td><input class="lib-input"      type="number" min="0" value="${food.cal}"     placeholder="0"></td>
     <td><input class="lib-input prot" type="number" min="0" value="${food.protein}" placeholder="0"></td>
@@ -2195,20 +2286,34 @@ function renderLibRow(food) {
     <td><button class="lib-del-btn" title="删除">×</button></td>
   `;
 
-  const [nameInp, unitSel, calInp, protInp, carbInp, fatInp] = [
-    tr.querySelector(".name-input"),
-    tr.querySelector(".lib-unit-select"),
-    ...tr.querySelectorAll("input[type=number]"),
-  ];
+  const nameInp    = tr.querySelector(".name-input");
+  const unitSel    = tr.querySelector(".lib-unit-select");
+  const servingInp = tr.querySelector(".lib-serving-inp");
+  const [calInp, protInp, carbInp, fatInp] = tr.querySelectorAll("input[type=number]:not(.lib-serving-inp)");
+
+  unitSel.addEventListener("change", () => {
+    if (unitSel.value === "个") {
+      servingInp.value    = "1";
+      servingInp.disabled = true;
+      servingInp.style.color = "#ccc";
+    } else {
+      servingInp.disabled = false;
+      servingInp.style.color = "";
+      if (servingInp.value === "1") servingInp.value = "100";
+    }
+  });
 
   function save() {
     const oldName = food.name;
     const newName = nameInp.value.trim();
     if (!newName) return;
 
+    const unit    = unitSel.value;
+    const serving = unit === "个" ? 1 : (parseFloat(servingInp.value) || 100);
     const updated = {
       name:    newName,
-      unit:    unitSel.value,
+      unit,
+      serving,
       cal:     parseFloat(calInp.value)  || 0,
       protein: parseFloat(protInp.value) || 0,
       carbs:   parseFloat(carbInp.value) || 0,
@@ -2219,13 +2324,13 @@ function renderLibRow(food) {
     const idx = customFoods.findIndex(f => f.name === oldName);
     if (idx >= 0) {
       customFoods[idx] = updated;
-      food.name = newName; // keep reference in sync so next save finds it
+      food.name = newName;
     }
     saveCustomFoods();
     updateLibTabCount();
   }
 
-  [nameInp, unitSel, calInp, protInp, carbInp, fatInp].forEach(el => {
+  [nameInp, unitSel, servingInp, calInp, protInp, carbInp, fatInp].forEach(el => {
     el.addEventListener("change", save);
     el.addEventListener("blur",   save);
   });
@@ -2591,6 +2696,73 @@ function appendSavedCard(foods) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
+// ===================== POOP LOG =====================
+let poopLogs = loadPoopLogs();
+
+function loadPoopLogs() {
+  try { return JSON.parse(localStorage.getItem("poop_logs") || "{}"); } catch { return {}; }
+}
+
+function savePoopLogs() {
+  localStorage.setItem("poop_logs", JSON.stringify(poopLogs));
+  cloudSave("poop_logs", poopLogs);
+  if (currentMode === "fitness") renderFitness();
+}
+
+function getPoopEntries(personIdx, dateStr) {
+  return (poopLogs[personIdx] || {})[dateStr] || [];
+}
+
+function renderPoop() {
+  const dateStr = todayStr();
+  const entries = getPoopEntries(currentPerson, dateStr);
+
+  document.getElementById("poop-date-label").textContent =
+    new Date(dateStr + "T00:00:00").toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" });
+  document.getElementById("poop-count-badge").textContent = `今日 ${entries.length} 次`;
+
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  document.getElementById("poop-time-input").value = `${hh}:${mm}`;
+
+  const list = document.getElementById("poop-list");
+  if (entries.length === 0) {
+    list.innerHTML = `<div class="poop-empty">今天还没有记录</div>`;
+    return;
+  }
+  list.innerHTML = entries.map((e, i) => `
+    <div class="poop-item">
+      <span class="poop-item-icon">💩</span>
+      <span class="poop-item-time">${e.time}</span>
+      <span class="poop-item-note">${esc(e.note || "")}</span>
+      <button class="poop-item-del" data-i="${i}">×</button>
+    </div>
+  `).join("");
+
+  list.querySelectorAll(".poop-item-del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const dateStr = todayStr();
+      if (!poopLogs[currentPerson]) poopLogs[currentPerson] = {};
+      poopLogs[currentPerson][dateStr].splice(Number(btn.dataset.i), 1);
+      savePoopLogs();
+      renderPoop();
+    });
+  });
+}
+
+document.getElementById("poop-add-btn").addEventListener("click", () => {
+  const time = document.getElementById("poop-time-input").value || "--:--";
+  const note = document.getElementById("poop-note-input").value.trim();
+  const dateStr = todayStr();
+  if (!poopLogs[currentPerson]) poopLogs[currentPerson] = {};
+  if (!poopLogs[currentPerson][dateStr]) poopLogs[currentPerson][dateStr] = [];
+  poopLogs[currentPerson][dateStr].push({ time, note });
+  document.getElementById("poop-note-input").value = "";
+  savePoopLogs();
+  renderPoop();
+});
+
 // ===================== FITNESS PLAN =====================
 let fitnessGoals = loadFitnessGoals();
 let weightLogs   = loadWeightLogs();
@@ -2717,6 +2889,23 @@ function drawWeekSection(p, g) {
   drawBarChart(document.getElementById("cal-chart"), nutData.map(n => n.cal), g.cal, DAY_LBL);
   renderAchievementTable(nutData, g);
   renderWeeklySummary(nutData, g, days.map(d => weightLogs[p]?.[d] ?? null));
+  renderPoopWeekGrid(p, days, DAY_LBL);
+}
+
+function renderPoopWeekGrid(p, days, dayLabels) {
+  const td = todayStr();
+  const grid = document.getElementById("poop-week-grid");
+  grid.innerHTML = days.map((d, i) => {
+    const count = getPoopEntries(p, d).length;
+    const isToday = d === td;
+    const emoji = count === 0 ? "" : count === 1 ? "💩" : count === 2 ? "💩💩" : "💩×" + count;
+    return `
+      <div class="poop-week-cell${isToday ? " today" : ""}">
+        <span class="pwc-day">周${dayLabels[i]}</span>
+        <span class="pwc-emoji">${emoji}</span>
+        <span class="pwc-count">${count > 0 ? count + " 次" : "—"}</span>
+      </div>`;
+  }).join("");
 }
 
 // ---------- LONG-TERM WEIGHT TREND ----------
@@ -2974,7 +3163,7 @@ document.getElementById("week-next-fit").addEventListener("click", () => {
 
 // ===================== CLOUD SYNC =====================
 let sb = null;
-const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names"];
+const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names", "poop_logs"];
 
 function setSyncStatus(status) {
   const dot = document.getElementById("sync-dot");
@@ -3004,12 +3193,14 @@ async function cloudPull() {
     customFoods  = loadCustomFoods();
     fitnessGoals = loadFitnessGoals();
     weightLogs   = loadWeightLogs();
+    poopLogs     = loadPoopLogs();
     personNames  = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
     document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
     updateLibTabCount();
     render();
     if (currentMode === "fitness") renderFitness();
     if (currentMode === "lib") renderLib();
+    if (currentMode === "poop") renderPoop();
     setSyncStatus("synced");
   } catch { setSyncStatus("error"); }
 }
@@ -3023,6 +3214,7 @@ async function cloudPush() {
     { key: "fitness_goals",value: fitnessGoals },
     { key: "weight_logs",  value: weightLogs },
     { key: "person_names", value: personNames },
+    { key: "poop_logs",    value: poopLogs },
   ];
   try {
     for (const p of pairs) {
@@ -3044,6 +3236,7 @@ function subscribeRealtime() {
       if (key === "custom_foods")  { customFoods  = loadCustomFoods();  updateLibTabCount(); if (currentMode === "lib") renderLib(); }
       if (key === "fitness_goals") { fitnessGoals = loadFitnessGoals(); if (currentMode === "fitness") renderFitness(); }
       if (key === "weight_logs")   { weightLogs   = loadWeightLogs();   if (currentMode === "fitness") renderFitness(); }
+      if (key === "poop_logs")     { poopLogs     = loadPoopLogs();     if (currentMode === "poop")    renderPoop(); }
       if (key === "person_names")  {
         personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
         document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
