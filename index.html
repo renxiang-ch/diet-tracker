@@ -1674,7 +1674,7 @@ function getPersonDay(date, p) {
 }
 
 function newItem() {
-  return { id: Date.now() + Math.random(), food:"", weight:"", calPer:"", protein:"", carbs:"", fat:"", unit:"g" };
+  return { id: Date.now() + Math.random(), food:"", weight:"", calPer:"", protein:"", carbs:"", fat:"", unit:"g", serving:100 };
 }
 
 // ===================== CUSTOM FOOD DB =====================
@@ -1694,7 +1694,7 @@ function maybeSaveCustomFood(item) {
   if (!name || item.calPer === "") return false;
   const toNum = v => (v === "" || isNaN(parseFloat(v))) ? 0 : parseFloat(v);
   const unit    = item.unit || "g";
-  const serving = unit === "个" ? 1 : 100;
+  const serving = unit === "个" ? 1 : (parseFloat(item.serving) || 100);
   const entry = { name, cal: toNum(item.calPer), protein: toNum(item.protein), carbs: toNum(item.carbs), fat: toNum(item.fat), unit, serving, custom: true };
   const idx = customFoods.findIndex(f => f.name.toLowerCase() === name.toLowerCase());
   if (idx >= 0) customFoods[idx] = entry;
@@ -1722,15 +1722,18 @@ function searchFood(query) {
 
 function itemNutrition(item) {
   const food    = item.food ? lookupFood(item.food) : null;
-  const serving = food?.unit === "个" ? 1 : (food?.serving || 100);
+  const serving = food
+    ? (food.unit === "个" ? 1 : (food.serving || 100))
+    : (item.unit === "个" ? 1 : (parseFloat(item.serving) || 100));
 
-  const cp  = parseFloat(item.calPer !== "" ? item.calPer : (food?.cal ?? ""));
-  if (isNaN(cp)) return { cal:0, protein:0, carbs:0, fat:0, source:"none" };
+  // library values always win for saved foods; fall back to item fields for new foods
+  const cp  = food ? food.cal     : parseFloat(item.calPer);
+  if (isNaN(cp) || cp === undefined) return { cal:0, protein:0, carbs:0, fat:0, source:"none" };
 
-  const w  = parseFloat(item.weight);
-  const pp = parseFloat(item.protein !== "" ? item.protein : (food?.protein ?? ""));
-  const cbp= parseFloat(item.carbs   !== "" ? item.carbs   : (food?.carbs   ?? ""));
-  const fp = parseFloat(item.fat     !== "" ? item.fat     : (food?.fat     ?? ""));
+  const w   = parseFloat(item.weight);
+  const pp  = food ? food.protein : parseFloat(item.protein);
+  const cbp = food ? food.carbs   : parseFloat(item.carbs);
+  const fp  = food ? food.fat     : parseFloat(item.fat);
 
   if (item.servingMode && food && food.unit !== "个") {
     // 份数模式：weight = 份数，直接乘以每份营养值
@@ -1778,8 +1781,9 @@ function render() {
     tab.classList.toggle("active", i === currentPerson);
   });
 
-  // note
-  document.getElementById("note-input").value = pday.note || "";
+  // note — skip if user is currently typing in the field
+  const noteEl = document.getElementById("note-input");
+  if (document.activeElement !== noteEl) noteEl.value = pday.note || "";
 
   // meals
   const container = document.getElementById("meals-container");
@@ -1883,8 +1887,9 @@ function renderRow(item, mi, ii) {
   const pday = getPersonDay(currentDate, currentPerson);
   const meal = pday.meals[mi];
   const libFood = item.food ? lookupFood(item.food) : null;
-  const unitLabel = libFood ? (libFood.unit || "g") : (item.unit || "g");
-  const isSaved = !!libFood;
+  // only treat as "saved" if the library entry has actual calorie data
+  const isSaved = !!(libFood && libFood.cal > 0);
+  const unitLabel = isSaved ? (libFood.unit || "g") : (item.unit || "g");
 
   const inServingMode = !!item.servingMode && isSaved && unitLabel !== "个";
   const weightPlaceholder = unitLabel === "个" ? "个数" : inServingMode ? "份数" : "0";
@@ -1898,12 +1903,16 @@ function renderRow(item, mi, ii) {
               <option value="serving" ${inServingMode?"selected":""}>份</option>
             </select>
           </td>`)
-    : `<td class="td-unit" style="padding:0 2px">
-        <select class="item-unit-sel" style="border:none;background:transparent;font-size:11px;color:#aaa;outline:none;cursor:pointer;width:100%">
+    : `<td class="td-unit-new" style="padding:0 2px;white-space:nowrap">
+        <select class="item-unit-sel" style="border:none;background:transparent;font-size:11px;color:#aaa;outline:none;cursor:pointer">
           <option value="g"  ${(item.unit||"g")==="g"  ?"selected":""}>g</option>
           <option value="ml" ${(item.unit||"g")==="ml" ?"selected":""}>ml</option>
           <option value="个" ${(item.unit||"g")==="个" ?"selected":""}>个</option>
         </select>
+        <input class="item-serving-inp" type="number" min="1"
+          value="${(item.unit||"g")==="个" ? 1 : (item.serving||100)}"
+          style="width:32px;border:none;border-bottom:1px solid #e8e8e8;font-size:11px;color:#aaa;text-align:center;background:transparent;outline:none;${(item.unit||"g")==="个"?"display:none":""}"
+          title="每份量">
       </td>`;
 
   tr.innerHTML = `
@@ -1934,7 +1943,8 @@ function renderRow(item, mi, ii) {
 
   const foodInput   = tr.querySelector(".food-input");
   const weightInput = tr.querySelector(".weight-input");
-  const unitSel     = tr.querySelector(".item-unit-sel");
+  const unitSel      = tr.querySelector(".item-unit-sel");
+  const servingInp   = tr.querySelector(".item-serving-inp");
   const calInput    = tr.querySelector(".nut-input.cal");
   const protInput   = tr.querySelector(".nut-input.prot");
   const carbInput   = tr.querySelector(".nut-input.carb");
@@ -1969,6 +1979,16 @@ function renderRow(item, mi, ii) {
       } else {
         item.unit = unitSel.value;
         weightInput.placeholder = item.unit === "个" ? "个数" : "0";
+        if (servingInp) {
+          if (item.unit === "个") {
+            item.serving = 1;
+            servingInp.style.display = "none";
+          } else {
+            servingInp.style.display = "";
+            if (servingInp.value === "1") servingInp.value = "100";
+            item.serving = parseFloat(servingInp.value) || 100;
+          }
+        }
         const saved = maybeSaveCustomFood(item);
         if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
       }
@@ -1997,19 +2017,36 @@ function renderRow(item, mi, ii) {
     saveAll(); refreshMeal(mi); refreshSummary();
   });
 
-  function onNutInput(field, input) {
-    return () => {
-      item[field] = input.value;
+  if (servingInp) {
+    servingInp.addEventListener("change", () => {
+      item.serving = parseFloat(servingInp.value) || 100;
       const saved = maybeSaveCustomFood(item);
       if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
       saveAll(); refreshMeal(mi); refreshSummary();
+    });
+  }
+
+  function onNutInput(field, input) {
+    return () => {
+      item[field] = input.value;
+      saveAll(); refreshMeal(mi); refreshSummary();
     };
+  }
+
+  function onNutBlur() {
+    const saved = maybeSaveCustomFood(item);
+    if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
   }
 
   calInput.addEventListener("input",  onNutInput("calPer",  calInput));
   protInput.addEventListener("input", onNutInput("protein", protInput));
   carbInput.addEventListener("input", onNutInput("carbs",   carbInput));
   fatInput.addEventListener("input",  onNutInput("fat",     fatInput));
+
+  calInput.addEventListener("blur",  onNutBlur);
+  protInput.addEventListener("blur", onNutBlur);
+  carbInput.addEventListener("blur", onNutBlur);
+  fatInput.addEventListener("blur",  onNutBlur);
 
   deleteBtn.addEventListener("click", () => {
     meal.items.splice(ii, 1);
@@ -2023,7 +2060,8 @@ function refreshBadge(tr, item) {
   const wrap = tr.querySelector(".food-cell-wrap");
   if (!wrap) return;
   wrap.querySelectorAll(".custom-badge").forEach(el => el.remove());
-  if (item.food && lookupFood(item.food)) {
+  const _lf = item.food ? lookupFood(item.food) : null;
+  if (_lf && _lf.cal > 0) {
     const badge = document.createElement("span");
     badge.className = "custom-badge";
     badge.textContent = "已保存";
@@ -2226,6 +2264,7 @@ document.getElementById("person-tabs").addEventListener("click", e => {
   if (tab && !e.target.classList.contains("tab-name-input")) {
     currentPerson = +tab.dataset.p;
     if (currentMode === "fitness") renderFitness();
+    else if (currentMode === "poop") renderPoop();
     else render();
   }
 });
