@@ -1,92 +1,100 @@
-# 🥗 饮食记录 Diet Tracker
+# 🥗 Diet Tracker
 
-一个单文件 HTML 饮食记录 Web 应用，支持双人共同记录、AI 热量估算、食物库管理、健身计划、大便记录和 Supabase 云实时同步。
+A single-file HTML diet tracking web app for two people. Features AI calorie estimation, a food library, fitness planning, bowel movement logging, and real-time cloud sync via Supabase.
 
-**线上地址：** https://renxiang-ch.github.io/diet-tracker/
-
----
-
-## 功能特性
-
-### 饮食日记
-- 按日期记录早餐、午餐、晚餐
-- 支持自定义餐次（每个 person 独立）
-- 食物名称自动补全（来自食物库）
-- 营养数据直接在日记行编辑，自动同步到食物库
-- 支持按重量（g/ml）或按份数记录
-- 支持"个"单位（如 1 个苹果）
-- 自定义每份量（如 220ml 为一份）
-- 每餐合计热量/蛋白质/碳水/脂肪实时更新
-- 每日总热量与目标对比展示
-
-### 食物库
-- 保存常用食物的营养数据（热量/蛋白质/碳水/脂肪）
-- 支持 g、ml、个 三种单位
-- 支持自定义每份量（如按 220ml 标注的饮料）
-- 在日记行直接新增或修改食物数据，实时同步到库
-
-### AI 估算（GPT-4o）
-- 描述食物或上传图片，AI 自动估算热量和营养
-- 使用 function calling 自动将新食物保存到食物库
-- 聊天界面显示保存结果确认卡片
-
-### 健身计划
-- 设置每日热量/蛋白质/碳水/脂肪目标
-- 设置目标体重，记录每日体重
-- 每周热量柱状图（绿=达标，红=超标，蓝=未达标）
-- 长期体重折线图（30/90/180/全部 天范围切换）
-- 本周大便次数概览网格
-
-### 大便记录
-- 按日期记录大便时间和备注
-- 支持日期导航，查看历史记录
-- 双人独立记录
-
-### 双人支持
-- 两人共用同一个 Supabase，数据实时互通
-- person tabs 独立切换，各自的饮食/健身/大便数据完全分开
-
-### 云同步（Supabase）
-- 使用 Supabase `kv_store` 表存储所有数据
-- Supabase Realtime 实时推送，两台设备数据自动同步
-- 本地 localStorage 作为缓存，断网也可使用
+**Live:** https://renxiang-ch.github.io/diet-tracker/
 
 ---
 
-## 使用方式
+## Features
 
-1. 打开 https://renxiang-ch.github.io/diet-tracker/
-2. 点击右上角 ☁ 图标，填入 Supabase URL 和 Anon Key
-3. 点击「上传本地数据」或「拉取云端数据」完成初次同步
-4. （可选）填入 OpenAI API Key 以启用 AI 估算功能
+### Food Diary
+- Log meals (breakfast, lunch, dinner) by date with full date navigation
+- All nutrition fields (calories, protein, carbs, fat) are always editable directly in the diary row
+- Changes sync back to the food library automatically on blur
+- Autocomplete from saved food library when typing food names
+- Add brand-new foods inline — data saves to library when you fill in calories and leave the field
+- Record by weight (g/ml), by count (个), or by number of servings (份)
+- Custom serving size per food (e.g. 220 ml per serving for a drink)
+- Per-meal and daily nutrition totals update in real time
+- Daily calorie progress bar vs. goal
 
-### Supabase 数据库配置
-在 Supabase 项目中创建以下表：
+### Food Library
+- Store per-serving nutrition data for frequently used foods
+- Three unit types: g, ml, 个 (count)
+- Custom serving size support (e.g. a 220 ml carton)
+- Edit food data directly from the diary — library stays in sync
+
+### AI Estimation (GPT-4o)
+- Describe a meal or upload a photo — AI estimates calories and macros
+- Uses OpenAI function calling to automatically save new foods to the library
+- Confirmation card shown in chat when foods are saved
+
+### Fitness Plan
+- Set daily goals for calories, protein, carbs, fat, and target weight
+- Log daily weight; view a long-term weight trend chart (30 / 90 / 180 / all days)
+- Weekly calorie bar chart: green = on target, red = over, blue = under
+- This-week bowel movement summary grid
+
+### Bowel Movement Log
+- Log time and optional notes per day
+- Full date navigation — browse any historical date
+- Per-person records, independent from the other user
+
+### Two-Person Support
+- Both users share one Supabase project — data syncs in real time across devices
+- Each person's diary, fitness, and bowel movement data is stored separately
+- Person tabs visible in diary, fitness, and poop panels
+
+### Cloud Sync (Supabase)
+- All data stored in a `kv_store` table (`key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ`)
+- Supabase Realtime pushes changes instantly to both devices
+- localStorage used as a local cache — works offline too
+- Synced keys: `diet_data2`, `custom_foods`, `fitness_goals`, `weight_logs`, `person_names`, `poop_logs`
+- API keys and Supabase credentials are stored only in localStorage and never synced to the cloud
+
+---
+
+## Getting Started
+
+1. Open https://renxiang-ch.github.io/diet-tracker/
+2. Click the ☁ icon (top right) and enter your Supabase project URL and Anon Key
+3. Use **Push local data** or **Pull cloud data** to do the initial sync
+4. *(Optional)* Enter your OpenAI API Key to enable AI estimation
+
+### Supabase Table Setup
+
+Run this in the Supabase SQL editor:
+
 ```sql
 CREATE TABLE kv_store (
-  key TEXT PRIMARY KEY,
-  value JSONB,
-  updated_at TIMESTAMPTZ DEFAULT now()
+  key         TEXT PRIMARY KEY,
+  value       JSONB,
+  updated_at  TIMESTAMPTZ DEFAULT now()
 );
 ```
-并在 Database → Publications → supabase_realtime 中开启 `kv_store` 表的实时订阅。
+
+Then go to **Database → Publications → supabase_realtime** and enable the `kv_store` table so both devices receive live updates.
 
 ---
 
-## 技术栈
+## Running Locally
 
-- 纯单文件 HTML/CSS/JS，无框架，无构建工具
-- 数据存储：Supabase（云端）+ localStorage（本地缓存）
-- AI：OpenAI GPT-4o，function calling
-- 图表：HTML Canvas API
-- 部署：GitHub Pages（push 后自动部署）
-
----
-
-## 本地运行
-
-直接用浏览器打开 `index.html` 文件即可，无需任何构建步骤。
+No build step needed — just open the file in a browser:
 
 ```bash
 open index.html
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Choice |
+|---|---|
+| Frontend | Vanilla HTML / CSS / JS (single file, no framework) |
+| Cloud storage | Supabase (`kv_store` table + Realtime) |
+| Local cache | `localStorage` |
+| AI | OpenAI GPT-4o with function calling |
+| Charts | HTML Canvas API |
+| Hosting | GitHub Pages (auto-deploy on push to `main`) |
