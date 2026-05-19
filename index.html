@@ -1693,10 +1693,12 @@ function maybeSaveCustomFood(item) {
   const name = item.food.trim();
   if (!name || item.calPer === "") return false;
   const toNum = v => (v === "" || isNaN(parseFloat(v))) ? 0 : parseFloat(v);
-  const unit    = item.unit || "g";
-  const serving = unit === "个" ? 1 : (parseFloat(item.serving) || 100);
-  const entry = { name, cal: toNum(item.calPer), protein: toNum(item.protein), carbs: toNum(item.carbs), fat: toNum(item.fat), unit, serving, custom: true };
   const idx = customFoods.findIndex(f => f.name.toLowerCase() === name.toLowerCase());
+  const existing = idx >= 0 ? customFoods[idx] : null;
+  // preserve unit/serving from library when updating; use item values for new foods
+  const unit    = existing ? existing.unit    : (item.unit || "g");
+  const serving = existing ? existing.serving : (unit === "个" ? 1 : (parseFloat(item.serving) || 100));
+  const entry = { name, cal: toNum(item.calPer), protein: toNum(item.protein), carbs: toNum(item.carbs), fat: toNum(item.fat), unit, serving, custom: true };
   if (idx >= 0) customFoods[idx] = entry;
   else customFoods.push(entry);
   saveCustomFoods();
@@ -1927,16 +1929,16 @@ function renderRow(item, mi, ii) {
     </td>
     ${unitCell}
     <td class="th-cal">
-      <input class="nut-input cal"  type="number" min="0" value="${esc(item.calPer)}"  placeholder="—" ${isSaved ? 'readonly style="color:#999;background:transparent;border:none"' : ""}>
+      <input class="nut-input cal"  type="number" min="0" value="${esc(item.calPer)}"  placeholder="—">
     </td>
     <td class="th-prot">
-      <input class="nut-input prot" type="number" min="0" value="${esc(item.protein)}" placeholder="—" ${isSaved ? 'readonly style="color:#7a9fc8;background:transparent;border:none"' : ""}>
+      <input class="nut-input prot" type="number" min="0" value="${esc(item.protein)}" placeholder="—">
     </td>
     <td class="th-carb">
-      <input class="nut-input carb" type="number" min="0" value="${esc(item.carbs)}"   placeholder="—" ${isSaved ? 'readonly style="color:#c8a07a;background:transparent;border:none"' : ""}>
+      <input class="nut-input carb" type="number" min="0" value="${esc(item.carbs)}"   placeholder="—">
     </td>
     <td class="th-fat">
-      <input class="nut-input fat"  type="number" min="0" value="${esc(item.fat)}"     placeholder="—" ${isSaved ? 'readonly style="color:#7ab87a;background:transparent;border:none"' : ""}>
+      <input class="nut-input fat"  type="number" min="0" value="${esc(item.fat)}"     placeholder="—">
     </td>
     <td class="th-del"><button class="delete-btn">×</button></td>
   `;
@@ -1951,14 +1953,7 @@ function renderRow(item, mi, ii) {
   const fatInput    = tr.querySelector(".nut-input.fat");
   const deleteBtn   = tr.querySelector(".delete-btn");
 
-  function refreshNutDisplay() {
-    if (!isSaved) return;
-    const n = itemNutrition(item);
-    if (calInput)  calInput.value  = n.cal  > 0 ? n.cal  : "";
-    if (protInput) protInput.value = n.protein > 0 ? n.protein : "";
-    if (carbInput) carbInput.value = n.carbs > 0 ? n.carbs : "";
-    if (fatInput)  fatInput.value  = n.fat  > 0 ? n.fat  : "";
-  }
+  function refreshNutDisplay() { /* inputs always show per-serving values, no override needed */ }
 
   function syncNutInputs() {
     if (calInput)  calInput.value  = item.calPer;
@@ -2035,7 +2030,7 @@ function renderRow(item, mi, ii) {
 
   function onNutBlur() {
     const saved = maybeSaveCustomFood(item);
-    if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
+    if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); refreshMeal(mi); refreshSummary(); }
   }
 
   calInput.addEventListener("input",  onNutInput("calPer",  calInput));
@@ -2223,18 +2218,24 @@ function handleSugKey(e, input, item, mi, tr) {
 }
 
 // ===================== DATE NAV =====================
+function renderForMode() {
+  if (currentMode === "poop") renderPoop();
+  else if (currentMode === "fitness") renderFitness();
+  else render();
+}
+
 document.getElementById("prev-day").addEventListener("click", () => {
   const d = new Date(currentDate + "T00:00:00");
   d.setDate(d.getDate() - 1);
   currentDate = d.toISOString().slice(0, 10);
-  render();
+  renderForMode();
 });
 
 document.getElementById("next-day").addEventListener("click", () => {
   const d = new Date(currentDate + "T00:00:00");
   d.setDate(d.getDate() + 1);
   const next = d.toISOString().slice(0, 10);
-  if (next <= todayStr()) { currentDate = next; render(); }
+  if (next <= todayStr()) { currentDate = next; renderForMode(); }
 });
 
 document.getElementById("date-label").addEventListener("click", () => {
@@ -2250,7 +2251,7 @@ document.getElementById("date-input").addEventListener("change", e => {
   if (val && val <= todayStr()) currentDate = val;
   document.getElementById("date-input").style.display = "none";
   document.getElementById("date-label").style.display = "";
-  render();
+  renderForMode();
 });
 
 document.getElementById("date-input").addEventListener("blur", () => {
@@ -2796,12 +2797,18 @@ function getPoopEntries(personIdx, dateStr) {
 }
 
 function renderPoop() {
-  const dateStr = todayStr();
+  const dateStr = currentDate;
   const entries = getPoopEntries(currentPerson, dateStr);
+
+  // sync header date label and next-day button (same as render())
+  document.getElementById("date-label").textContent =
+    new Date(dateStr + "T00:00:00").toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" });
+  document.getElementById("next-day").disabled = (dateStr >= todayStr());
 
   document.getElementById("poop-date-label").textContent =
     new Date(dateStr + "T00:00:00").toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" });
-  document.getElementById("poop-count-badge").textContent = `今日 ${entries.length} 次`;
+  document.getElementById("poop-count-badge").textContent =
+    `${dateStr === todayStr() ? "今日" : "当天"} ${entries.length} 次`;
 
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
@@ -2810,7 +2817,7 @@ function renderPoop() {
 
   const list = document.getElementById("poop-list");
   if (entries.length === 0) {
-    list.innerHTML = `<div class="poop-empty">今天还没有记录</div>`;
+    list.innerHTML = `<div class="poop-empty">${dateStr === todayStr() ? "今天" : "当天"}还没有记录</div>`;
     return;
   }
   list.innerHTML = entries.map((e, i) => `
@@ -2824,11 +2831,11 @@ function renderPoop() {
 
   list.querySelectorAll(".poop-item-del").forEach(btn => {
     btn.addEventListener("click", () => {
-      const dateStr = todayStr();
-      if (!poopLogs[currentPerson]) poopLogs[currentPerson] = {};
-      poopLogs[currentPerson][dateStr].splice(Number(btn.dataset.i), 1);
-      savePoopLogs();
-      renderPoop();
+      if (poopLogs[currentPerson] && poopLogs[currentPerson][dateStr]) {
+        poopLogs[currentPerson][dateStr].splice(Number(btn.dataset.i), 1);
+        savePoopLogs();
+        renderPoop();
+      }
     });
   });
 }
@@ -2836,7 +2843,7 @@ function renderPoop() {
 document.getElementById("poop-add-btn").addEventListener("click", () => {
   const time = document.getElementById("poop-time-input").value || "--:--";
   const note = document.getElementById("poop-note-input").value.trim();
-  const dateStr = todayStr();
+  const dateStr = currentDate;
   if (!poopLogs[currentPerson]) poopLogs[currentPerson] = {};
   if (!poopLogs[currentPerson][dateStr]) poopLogs[currentPerson][dateStr] = [];
   poopLogs[currentPerson][dateStr].push({ time, note });
