@@ -1428,7 +1428,7 @@
 <div id="ai-panel" style="display:none">
   <div class="api-key-bar">
     <label>API Key</label>
-    <input type="password" id="api-key-input" placeholder="sk-...  输入你的 OpenAI API Key">
+    <input type="password" id="api-key-input" placeholder="sk-...  输入你的 OpenAI API Key" autocomplete="off">
     <span class="key-status" id="key-status" style="display:none">✓ 已保存</span>
     <button id="save-key-btn">保存</button>
     <button id="clear-key-btn" style="color:#e44;border-color:#fcc">清除</button>
@@ -1463,9 +1463,9 @@
     <div class="cloud-modal-body">
       <p class="cloud-hint">填入你的 Supabase 项目信息后，所有数据将实时同步到云端，两台设备共用同一份记录。</p>
       <label class="cloud-label">Supabase 项目 URL</label>
-      <input id="sb-url-input" class="cloud-input" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co">
+      <input id="sb-url-input" class="cloud-input" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off">
       <label class="cloud-label">Supabase Anon Key</label>
-      <input id="sb-key-input" class="cloud-input" type="password" placeholder="eyJhbGciOiJIUzI1NiIsIn...">
+      <input id="sb-key-input" class="cloud-input" type="password" placeholder="eyJhbGciOiJIUzI1NiIsIn..." autocomplete="off">
       <div class="cloud-modal-actions">
         <button id="cloud-connect-btn" class="cloud-connect-btn">连接</button>
         <button id="cloud-disconnect-btn" class="cloud-disconnect-btn">断开连接</button>
@@ -1721,20 +1721,31 @@ function searchFood(query) {
 }
 
 function itemNutrition(item) {
-  const cp  = parseFloat(item.calPer);
+  const food    = item.food ? lookupFood(item.food) : null;
+  const serving = food?.unit === "个" ? 1 : (food?.serving || 100);
+
+  const cp  = parseFloat(item.calPer !== "" ? item.calPer : (food?.cal ?? ""));
   if (isNaN(cp)) return { cal:0, protein:0, carbs:0, fat:0, source:"none" };
 
-  const food     = item.food ? lookupFood(item.food) : null;
-  const serving  = food?.unit === "个" ? 1 : (food?.serving || 100);
+  const w  = parseFloat(item.weight);
+  const pp = parseFloat(item.protein !== "" ? item.protein : (food?.protein ?? ""));
+  const cbp= parseFloat(item.carbs   !== "" ? item.carbs   : (food?.carbs   ?? ""));
+  const fp = parseFloat(item.fat     !== "" ? item.fat     : (food?.fat     ?? ""));
 
-  const w = parseFloat(item.weight);
-  // weight blank/0 → treat as 1 serving
+  if (item.servingMode && food && food.unit !== "个") {
+    // 份数模式：weight = 份数，直接乘以每份营养值
+    const servings = (isNaN(w) || w <= 0) ? 1 : w;
+    return {
+      cal:     Math.round(servings * cp),
+      protein: isNaN(pp)  ? 0 : Math.round(servings * pp  * 10) / 10,
+      carbs:   isNaN(cbp) ? 0 : Math.round(servings * cbp * 10) / 10,
+      fat:     isNaN(fp)  ? 0 : Math.round(servings * fp  * 10) / 10,
+      source:  "estimated",
+    };
+  }
+
+  // 重量模式（默认）
   const effectiveW = (isNaN(w) || w <= 0) ? serving : w;
-
-  const pp  = parseFloat(item.protein);
-  const cbp = parseFloat(item.carbs);
-  const fp  = parseFloat(item.fat);
-
   return {
     cal:     Math.round(effectiveW * cp  / serving),
     protein: isNaN(pp)  ? 0 : Math.round(effectiveW * pp  / serving * 10) / 10,
@@ -1822,7 +1833,10 @@ function render() {
     container.appendChild(sec);
 
     const tbody = sec.querySelector(`#meal-body-${mi}`);
-    meal.items.forEach((item, ii) => tbody.appendChild(renderRow(item, mi, ii)));
+    meal.items.forEach((item, ii) => {
+      try { tbody.appendChild(renderRow(item, mi, ii)); }
+      catch(e) { console.error("renderRow error", e, item); }
+    });
 
     sec.querySelector(".add-row-btn").addEventListener("click", () => {
       meal.items.push(newItem());
@@ -1872,8 +1886,18 @@ function renderRow(item, mi, ii) {
   const unitLabel = libFood ? (libFood.unit || "g") : (item.unit || "g");
   const isSaved = !!libFood;
 
+  const inServingMode = !!item.servingMode && isSaved && unitLabel !== "个";
+  const weightPlaceholder = unitLabel === "个" ? "个数" : inServingMode ? "份数" : "0";
+
   const unitCell = isSaved
-    ? `<td class="td-unit" style="font-size:11px;color:#ccc;padding:0 4px">${unitLabel}</td>`
+    ? (unitLabel === "个"
+        ? `<td class="td-unit" style="font-size:11px;color:#ccc;padding:0 4px">个</td>`
+        : `<td class="td-unit" style="padding:0 2px">
+            <select class="item-unit-sel" style="border:none;background:transparent;font-size:11px;color:#aaa;outline:none;cursor:pointer;width:100%">
+              <option value=""   ${!inServingMode?"selected":""} >${unitLabel}</option>
+              <option value="serving" ${inServingMode?"selected":""}>份</option>
+            </select>
+          </td>`)
     : `<td class="td-unit" style="padding:0 2px">
         <select class="item-unit-sel" style="border:none;background:transparent;font-size:11px;color:#aaa;outline:none;cursor:pointer;width:100%">
           <option value="g"  ${(item.unit||"g")==="g"  ?"selected":""}>g</option>
@@ -1890,20 +1914,20 @@ function renderRow(item, mi, ii) {
       </div>
     </td>
     <td style="text-align:right;padding-right:2px">
-      <input class="weight-input" type="number" min="0" value="${esc(item.weight)}" placeholder="${unitLabel==='个'?'个数':'0'}" style="width:55px;text-align:right">
+      <input class="weight-input" type="number" min="0" value="${esc(item.weight)}" placeholder="${weightPlaceholder}" style="width:55px;text-align:right">
     </td>
     ${unitCell}
     <td class="th-cal">
-      <input class="nut-input cal" type="number" min="0" value="${esc(item.calPer)}" placeholder="—" title="每份热量(kcal)">
+      <input class="nut-input cal"  type="number" min="0" value="${esc(item.calPer)}"  placeholder="—" ${isSaved ? 'readonly style="color:#999;background:transparent;border:none"' : ""}>
     </td>
     <td class="th-prot">
-      <input class="nut-input prot" type="number" min="0" value="${esc(item.protein)}" placeholder="—" title="每100g蛋白质(g)">
+      <input class="nut-input prot" type="number" min="0" value="${esc(item.protein)}" placeholder="—" ${isSaved ? 'readonly style="color:#7a9fc8;background:transparent;border:none"' : ""}>
     </td>
     <td class="th-carb">
-      <input class="nut-input carb" type="number" min="0" value="${esc(item.carbs)}" placeholder="—" title="每100g碳水(g)">
+      <input class="nut-input carb" type="number" min="0" value="${esc(item.carbs)}"   placeholder="—" ${isSaved ? 'readonly style="color:#c8a07a;background:transparent;border:none"' : ""}>
     </td>
     <td class="th-fat">
-      <input class="nut-input fat" type="number" min="0" value="${esc(item.fat)}" placeholder="—" title="每100g脂肪(g)">
+      <input class="nut-input fat"  type="number" min="0" value="${esc(item.fat)}"     placeholder="—" ${isSaved ? 'readonly style="color:#7ab87a;background:transparent;border:none"' : ""}>
     </td>
     <td class="th-del"><button class="delete-btn">×</button></td>
   `;
@@ -1917,20 +1941,37 @@ function renderRow(item, mi, ii) {
   const fatInput    = tr.querySelector(".nut-input.fat");
   const deleteBtn   = tr.querySelector(".delete-btn");
 
-  function syncNutInputs() {
-    calInput.value  = item.calPer;
-    protInput.value = item.protein;
-    carbInput.value = item.carbs;
-    fatInput.value  = item.fat;
+  function refreshNutDisplay() {
+    if (!isSaved) return;
+    const n = itemNutrition(item);
+    if (calInput)  calInput.value  = n.cal  > 0 ? n.cal  : "";
+    if (protInput) protInput.value = n.protein > 0 ? n.protein : "";
+    if (carbInput) carbInput.value = n.carbs > 0 ? n.carbs : "";
+    if (fatInput)  fatInput.value  = n.fat  > 0 ? n.fat  : "";
   }
+
+  function syncNutInputs() {
+    if (calInput)  calInput.value  = item.calPer;
+    if (protInput) protInput.value = item.protein;
+    if (carbInput) carbInput.value = item.carbs;
+    if (fatInput)  fatInput.value  = item.fat;
+  }
+
+  // init display for saved foods
+  refreshNutDisplay();
 
   if (unitSel) {
     unitSel.addEventListener("change", () => {
-      item.unit = unitSel.value;
-      const wInp = tr.querySelector(".weight-input");
-      if (wInp) wInp.placeholder = item.unit === "个" ? "个数" : "0";
-      const saved = maybeSaveCustomFood(item);
-      if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
+      if (isSaved) {
+        item.servingMode = unitSel.value === "serving";
+        weightInput.placeholder = item.servingMode ? "份数" : (unitLabel === "个" ? "个数" : "0");
+        refreshNutDisplay();
+      } else {
+        item.unit = unitSel.value;
+        weightInput.placeholder = item.unit === "个" ? "个数" : "0";
+        const saved = maybeSaveCustomFood(item);
+        if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); }
+      }
       saveAll(); refreshMeal(mi); refreshSummary();
     });
   }
@@ -1946,11 +1987,13 @@ function renderRow(item, mi, ii) {
     setTimeout(() => hideSuggestions(), 200);
     autoFillFromDB(item, tr);
     syncNutInputs();
+    refreshNutDisplay();
     saveAll(); refreshBadge(tr, item); refreshMeal(mi); refreshSummary();
   });
 
   weightInput.addEventListener("input", () => {
     item.weight = weightInput.value;
+    refreshNutDisplay();
     saveAll(); refreshMeal(mi); refreshSummary();
   });
 
