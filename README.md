@@ -39,6 +39,8 @@ Enable `kv_store` under **Database → Publications → supabase_realtime** for 
 ## Updates
 
 ### 2026-05-23
+- **Fix** typing in nutrition fields no longer loses focus — cloud sync moved to blur event; `localSave()` used during active typing to avoid Supabase Realtime triggering a re-render mid-input
+- **Fix** Chrome no longer prompts to save password for API key / Supabase key fields
 - **Fix** diary rows now show protein/carbs/fat from library when they were added to the library after the diary entry was recorded (stale 0/empty values auto-synced from library on render)
 - **UX** serving size input hidden on new empty rows — only appears after food name is typed
 

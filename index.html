@@ -1428,7 +1428,7 @@
 <div id="ai-panel" style="display:none">
   <div class="api-key-bar">
     <label>API Key</label>
-    <input type="password" id="api-key-input" placeholder="sk-...  输入你的 OpenAI API Key" autocomplete="off">
+    <input type="password" id="api-key-input" placeholder="sk-...  输入你的 OpenAI API Key" autocomplete="new-password">
     <span class="key-status" id="key-status" style="display:none">✓ 已保存</span>
     <button id="save-key-btn">保存</button>
     <button id="clear-key-btn" style="color:#e44;border-color:#fcc">清除</button>
@@ -1465,7 +1465,7 @@
       <label class="cloud-label">Supabase 项目 URL</label>
       <input id="sb-url-input" class="cloud-input" type="text" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off">
       <label class="cloud-label">Supabase Anon Key</label>
-      <input id="sb-key-input" class="cloud-input" type="password" placeholder="eyJhbGciOiJIUzI1NiIsIn..." autocomplete="off">
+      <input id="sb-key-input" class="cloud-input" type="password" placeholder="eyJhbGciOiJIUzI1NiIsIn..." autocomplete="new-password">
       <div class="cloud-modal-actions">
         <button id="cloud-connect-btn" class="cloud-connect-btn">连接</button>
         <button id="cloud-disconnect-btn" class="cloud-disconnect-btn">断开连接</button>
@@ -1645,6 +1645,10 @@ function todayStr() {
 
 function loadAll() {
   try { return JSON.parse(localStorage.getItem("diet_data2") || "{}"); } catch { return {}; }
+}
+
+function localSave() {
+  localStorage.setItem("diet_data2", JSON.stringify(data));
 }
 
 function saveAll() {
@@ -2033,7 +2037,11 @@ function renderRow(item, mi, ii) {
   weightInput.addEventListener("input", () => {
     item.weight = weightInput.value;
     refreshNutDisplay();
-    saveAll(); refreshMeal(mi); refreshSummary();
+    localSave(); refreshMeal(mi); refreshSummary();
+  });
+
+  weightInput.addEventListener("blur", () => {
+    saveAll();
   });
 
   if (servingInp) {
@@ -2048,13 +2056,14 @@ function renderRow(item, mi, ii) {
   function onNutInput(field, input) {
     return () => {
       item[field] = input.value;
-      saveAll(); refreshMeal(mi); refreshSummary();
+      localSave(); refreshMeal(mi); refreshSummary();
     };
   }
 
   function onNutBlur() {
     const saved = maybeSaveCustomFood(item);
     if (saved) { customFoods = loadCustomFoods(); refreshBadge(tr, item); refreshMeal(mi); refreshSummary(); }
+    saveAll(); // cloud-sync only on blur, not on every keystroke
   }
 
   calInput.addEventListener("input",  onNutInput("calPer",  calInput));
