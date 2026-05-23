@@ -1764,7 +1764,27 @@ function itemNutrition(item) {
 const MEAL_ICONS = ["☀️","🌤️","🌙","🍎"];
 const MACRO_GOALS = { cal:2000, protein:75, carbs:250, fat:60 };
 
+function syncDiaryFromLibrary() {
+  // When library macros are added after a diary entry was saved (with only calories),
+  // pull updated values into the diary item so inputs display correctly.
+  const pday = getPersonDay(currentDate, currentPerson);
+  let changed = false;
+  pday.meals.forEach(meal => {
+    meal.items.forEach(item => {
+      if (!item.food) return;
+      const lib = lookupFood(item.food);
+      if (!lib || !lib.cal) return;
+      if (!parseFloat(item.calPer)  && lib.cal)     { item.calPer  = String(lib.cal);     changed = true; }
+      if (!parseFloat(item.protein) && lib.protein) { item.protein = String(lib.protein); changed = true; }
+      if (!parseFloat(item.carbs)   && lib.carbs)   { item.carbs   = String(lib.carbs);   changed = true; }
+      if (!parseFloat(item.fat)     && lib.fat)     { item.fat     = String(lib.fat);     changed = true; }
+    });
+  });
+  if (changed) saveAll();
+}
+
 function render() {
+  syncDiaryFromLibrary();
   const pday = getPersonDay(currentDate, currentPerson);
 
   // date label
@@ -1894,7 +1914,7 @@ function renderRow(item, mi, ii) {
   const unitLabel = isSaved ? (libFood.unit || "g") : (item.unit || "g");
 
   const inServingMode = !!item.servingMode && isSaved && unitLabel !== "个";
-  const weightPlaceholder = unitLabel === "个" ? "个数" : inServingMode ? "份数" : "0";
+  const weightPlaceholder = unitLabel === "个" ? "个数" : inServingMode ? "份数" : "";
 
   const unitCell = isSaved
     ? (unitLabel === "个"
@@ -1913,7 +1933,7 @@ function renderRow(item, mi, ii) {
         </select>
         <input class="item-serving-inp" type="number" min="1"
           value="${(item.unit||"g")==="个" ? 1 : (item.serving||100)}"
-          style="width:32px;border:none;border-bottom:1px solid #e8e8e8;font-size:11px;color:#aaa;text-align:center;background:transparent;outline:none;${(item.unit||"g")==="个"?"display:none":""}"
+          style="width:32px;border:none;border-bottom:1px solid #e8e8e8;font-size:11px;color:#aaa;text-align:center;background:transparent;outline:none;${((item.unit||"g")==="个" || !item.food) ? "display:none" : ""}"
           title="每份量">
       </td>`;
 
@@ -1994,6 +2014,10 @@ function renderRow(item, mi, ii) {
   foodInput.addEventListener("input", () => {
     item.food = foodInput.value;
     showSuggestions(foodInput, item, mi);
+    // show/hide serving input based on whether food name is set
+    if (servingInp && (item.unit || "g") !== "个") {
+      servingInp.style.display = foodInput.value ? "" : "none";
+    }
   });
 
   foodInput.addEventListener("keydown", e => handleSugKey(e, foodInput, item, mi, tr));

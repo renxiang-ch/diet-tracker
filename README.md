@@ -38,6 +38,10 @@ Enable `kv_store` under **Database → Publications → supabase_realtime** for 
 
 ## Updates
 
+### 2026-05-23
+- **Fix** diary rows now show protein/carbs/fat from library when they were added to the library after the diary entry was recorded (stale 0/empty values auto-synced from library on render)
+- **UX** serving size input hidden on new empty rows — only appears after food name is typed
+
 ### 2026-05-19
 - **Fix** poop log showing wrong date — `renderPoop` now uses `currentDate` instead of always loading today
 - **Fix** date navigation (prev/next buttons) now works in poop and fitness panels, not just diary
