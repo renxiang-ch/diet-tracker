@@ -36,6 +36,14 @@ Enable `kv_store` under **Database → Publications → supabase_realtime** for 
 
 ---
 
+## ChatGPT / Codex plugin
+
+The repository includes a remote MCP server under [`mcp-server/`](./mcp-server/) and a repository-marketplace plugin package under [`plugins/diet-tracker/`](./plugins/diet-tracker/).
+
+The current hosted MCP deployment is a private, single-owner service. It uses one shared password and one shared Supabase dataset. Do not publish that endpoint for general public use yet. See [`PUBLIC_RELEASE.md`](./PUBLIC_RELEASE.md) for the required multi-user authentication, data-isolation, privacy, and submission work.
+
+---
+
 ## Updates
 
 ### 2026-05-23

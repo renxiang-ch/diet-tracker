@@ -4,7 +4,7 @@ import type { Env } from "./env";
 // RLS policy 是完全开放的（USING (true) WITH CHECK (true)），网页用的 anon key 已有全部读写权限，
 // 这里复用同一个 SB_URL / SB_KEY，不需要 service role key。
 
-export const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names"] as const;
+export const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names", "poop_logs", "period_logs"] as const;
 export type SyncKey = (typeof SYNC_KEYS)[number];
 
 export async function getKv(env: Env, keys: SyncKey[]): Promise<Record<string, unknown>> {

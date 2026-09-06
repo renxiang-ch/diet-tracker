@@ -498,6 +498,32 @@
     .poop-item-del:hover { color: #e44; }
     .poop-empty { text-align: center; color: #bbb; font-size: 14px; padding: 40px 0; }
 
+    /* ===== PERIOD PANEL (PERSON 1 ONLY) ===== */
+    #period-panel { padding: 16px; max-width: 760px; margin: 0 auto; }
+    .period-card { background: #fff8fa; border: 1px solid #f4dce4; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .period-title { font-size: 16px; font-weight: 700; color: #9f4966; margin-bottom: 5px; }
+    .period-hint { font-size: 12px; color: #a98793; line-height: 1.5; margin-bottom: 14px; }
+    .period-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+    .period-field { display: flex; flex-direction: column; gap: 5px; }
+    .period-field label { font-size: 12px; font-weight: 600; color: #805a67; }
+    .period-field input { border: 1px solid #e7cbd5; border-radius: 8px; padding: 8px 10px; font-size: 14px; outline: none; }
+    .period-field input:focus { border-color: #c45f82; }
+    .period-add-btn { background: #bd587a; color: #fff; border: none; border-radius: 8px; padding: 9px 17px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .period-add-btn:hover { background: #a94969; }
+    .period-status { min-height: 18px; margin-top: 9px; font-size: 13px; color: #b23b61; }
+    .period-history-title { font-size: 14px; font-weight: 700; color: #555; margin: 18px 0 10px; }
+    .period-list { display: flex; flex-direction: column; gap: 9px; }
+    .period-item { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid #eee; border-radius: 10px; background: #fff; flex-wrap: wrap; }
+    .period-item.active { border-color: #efb5c8; background: #fff8fa; }
+    .period-item-icon { font-size: 20px; }
+    .period-item-dates { flex: 1; min-width: 170px; font-size: 14px; color: #444; }
+    .period-item-meta { font-size: 12px; color: #a06b7d; }
+    .period-end-input { border: 1px solid #e4d5da; border-radius: 7px; padding: 5px 8px; font-size: 13px; }
+    .period-save-end { background: #f4dce4; color: #93435e; border: none; border-radius: 7px; padding: 6px 10px; cursor: pointer; }
+    .period-delete { background: none; color: #bbb; border: none; font-size: 18px; cursor: pointer; }
+    .period-delete:hover { color: #d44; }
+    .period-empty { text-align: center; color: #bbb; padding: 32px 0; font-size: 14px; }
+
     /* poop weekly grid in fitness panel */
     .poop-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
     .poop-week-cell { display: flex; flex-direction: column; align-items: center; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 8px; padding: 8px 4px 6px; }
@@ -1220,6 +1246,7 @@
     <div class="mode-tab" data-mode="lib">📚 食物库<span class="lib-count" id="lib-tab-count"></span></div>
     <div class="mode-tab" data-mode="fitness">💪 饮食计划</div>
     <div class="mode-tab" data-mode="poop">💩 大便</div>
+    <div class="mode-tab" id="period-mode-tab" data-mode="period" style="display:none">🌸 月经</div>
   </div>
   <div class="person-tabs" id="person-tabs">
     <div class="person-tab active" data-p="0">
@@ -1422,6 +1449,28 @@
     <button class="poop-add-btn" id="poop-add-btn">+ 记录</button>
   </div>
   <div class="poop-list" id="poop-list"></div>
+</div>
+
+<!-- PERIOD PANEL (PERSON 1 ONLY) -->
+<div id="period-panel" style="display:none">
+  <div class="period-card">
+    <div class="period-title">🌸 月经周期记录</div>
+    <div class="period-hint">仅用于第二位使用者。记录每次月经的开始日期，结束后可补充结束日期。</div>
+    <div class="period-form">
+      <div class="period-field">
+        <label for="period-start-input">开始日期</label>
+        <input type="date" id="period-start-input">
+      </div>
+      <div class="period-field">
+        <label for="period-end-input">结束日期（可选）</label>
+        <input type="date" id="period-end-input">
+      </div>
+      <button class="period-add-btn" id="period-add-btn">+ 添加周期</button>
+    </div>
+    <div class="period-status" id="period-status"></div>
+  </div>
+  <div class="period-history-title">历史周期</div>
+  <div class="period-list" id="period-list"></div>
 </div>
 
 <!-- AI PANEL -->
@@ -2254,6 +2303,7 @@ function handleSugKey(e, input, item, mi, tr) {
 function renderForMode() {
   if (currentMode === "poop") renderPoop();
   else if (currentMode === "fitness") renderFitness();
+  else if (currentMode === "period") renderPeriod();
   else render();
 }
 
@@ -2297,8 +2347,14 @@ document.getElementById("person-tabs").addEventListener("click", e => {
   const tab = e.target.closest(".person-tab");
   if (tab && !e.target.classList.contains("tab-name-input")) {
     currentPerson = +tab.dataset.p;
+    updatePeriodTabVisibility();
+    if (currentMode === "period" && currentPerson !== 1) {
+      setMode("diary");
+      return;
+    }
     if (currentMode === "fitness") renderFitness();
     else if (currentMode === "poop") renderPoop();
+    else if (currentMode === "period") renderPeriod();
     else render();
   }
 });
@@ -2339,17 +2395,24 @@ document.addEventListener("click", e => {
 let currentMode = "diary";
 
 function setMode(mode) {
+  if (mode === "period" && currentPerson !== 1) return;
   currentMode = mode;
   document.querySelectorAll(".mode-tab").forEach(t => t.classList.toggle("active", t.dataset.mode === mode));
-  document.getElementById("person-tabs").style.display    = (mode === "diary" || mode === "fitness" || mode === "poop") ? "" : "none";
+  document.getElementById("person-tabs").style.display    = (mode === "diary" || mode === "fitness" || mode === "poop" || mode === "period") ? "" : "none";
   document.querySelector(".container").style.display      = mode === "diary"   ? "" : "none";
   document.getElementById("ai-panel").style.display      = mode === "ai"      ? "" : "none";
   document.getElementById("lib-panel").style.display     = mode === "lib"     ? "" : "none";
   document.getElementById("fitness-panel").style.display = mode === "fitness" ? "" : "none";
   document.getElementById("poop-panel").style.display    = mode === "poop"    ? "" : "none";
+  document.getElementById("period-panel").style.display  = mode === "period"  ? "" : "none";
   if (mode === "lib")     renderLib();
   if (mode === "fitness") renderFitness();
   if (mode === "poop")    renderPoop();
+  if (mode === "period")  renderPeriod();
+}
+
+function updatePeriodTabVisibility() {
+  document.getElementById("period-mode-tab").style.display = currentPerson === 1 ? "" : "none";
 }
 
 document.querySelectorAll(".mode-tab").forEach(tab => {
@@ -2885,6 +2948,105 @@ document.getElementById("poop-add-btn").addEventListener("click", () => {
   renderPoop();
 });
 
+// ===================== PERIOD LOG (PERSON 1 ONLY) =====================
+let periodLogs = loadPeriodLogs();
+
+function loadPeriodLogs() {
+  try { return JSON.parse(localStorage.getItem("period_logs") || "[]"); } catch { return []; }
+}
+
+function savePeriodLogs() {
+  localStorage.setItem("period_logs", JSON.stringify(periodLogs));
+  cloudSave("period_logs", periodLogs);
+}
+
+function periodDays(startDate, endDate) {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
+  return Math.round((end - start) / 86400000) + 1;
+}
+
+function renderPeriod() {
+  if (currentPerson !== 1) {
+    setMode("diary");
+    return;
+  }
+  document.getElementById("period-start-input").max = todayStr();
+  document.getElementById("period-end-input").max = todayStr();
+  if (!document.getElementById("period-start-input").value) {
+    document.getElementById("period-start-input").value = todayStr();
+  }
+
+  const sorted = [...periodLogs].sort((a, b) => b.startDate.localeCompare(a.startDate));
+  const list = document.getElementById("period-list");
+  if (!sorted.length) {
+    list.innerHTML = '<div class="period-empty">还没有月经周期记录</div>';
+    return;
+  }
+  list.innerHTML = sorted.map(cycle => {
+    const days = periodDays(cycle.startDate, cycle.endDate);
+    const active = !cycle.endDate;
+    return `
+      <div class="period-item ${active ? "active" : ""}" data-id="${esc(cycle.id)}">
+        <span class="period-item-icon">${active ? "🌸" : "🌷"}</span>
+        <div class="period-item-dates">
+          <div>${esc(cycle.startDate)} → ${cycle.endDate ? esc(cycle.endDate) : "进行中"}</div>
+          <div class="period-item-meta">${days ? `持续 ${days} 天` : "等待记录结束日期"}</div>
+        </div>
+        ${active ? `
+          <input class="period-end-input" type="date" min="${esc(cycle.startDate)}" max="${todayStr()}" value="${todayStr()}">
+          <button class="period-save-end">记录结束</button>
+        ` : ""}
+        <button class="period-delete" title="删除">×</button>
+      </div>`;
+  }).join("");
+
+  list.querySelectorAll(".period-save-end").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".period-item");
+      const cycle = periodLogs.find(c => String(c.id) === row.dataset.id);
+      const endDate = row.querySelector(".period-end-input").value;
+      if (!cycle || !endDate || endDate < cycle.startDate) return;
+      cycle.endDate = endDate;
+      savePeriodLogs();
+      renderPeriod();
+    });
+  });
+
+  list.querySelectorAll(".period-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.closest(".period-item").dataset.id;
+      periodLogs = periodLogs.filter(c => String(c.id) !== id);
+      savePeriodLogs();
+      renderPeriod();
+    });
+  });
+}
+
+document.getElementById("period-add-btn").addEventListener("click", () => {
+  const startDate = document.getElementById("period-start-input").value;
+  const endDate = document.getElementById("period-end-input").value || null;
+  const status = document.getElementById("period-status");
+  if (!startDate) {
+    status.textContent = "请选择开始日期";
+    return;
+  }
+  if (endDate && endDate < startDate) {
+    status.textContent = "结束日期不能早于开始日期";
+    return;
+  }
+  if (!endDate && periodLogs.some(c => !c.endDate)) {
+    status.textContent = "已有一个进行中的周期，请先记录结束日期";
+    return;
+  }
+  periodLogs.push({ id: Date.now() + Math.random(), startDate, endDate });
+  savePeriodLogs();
+  document.getElementById("period-end-input").value = "";
+  status.textContent = "✓ 已保存";
+  renderPeriod();
+});
+
 // ===================== FITNESS PLAN =====================
 let fitnessGoals = loadFitnessGoals();
 let weightLogs   = loadWeightLogs();
@@ -3285,7 +3447,7 @@ document.getElementById("week-next-fit").addEventListener("click", () => {
 
 // ===================== CLOUD SYNC =====================
 let sb = null;
-const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names", "poop_logs"];
+const SYNC_KEYS = ["diet_data2", "custom_foods", "fitness_goals", "weight_logs", "person_names", "poop_logs", "period_logs"];
 
 function setSyncStatus(status) {
   const dot = document.getElementById("sync-dot");
@@ -3316,6 +3478,7 @@ async function cloudPull() {
     fitnessGoals = loadFitnessGoals();
     weightLogs   = loadWeightLogs();
     poopLogs     = loadPoopLogs();
+    periodLogs   = loadPeriodLogs();
     personNames  = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
     document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
     updateLibTabCount();
@@ -3323,6 +3486,7 @@ async function cloudPull() {
     if (currentMode === "fitness") renderFitness();
     if (currentMode === "lib") renderLib();
     if (currentMode === "poop") renderPoop();
+    if (currentMode === "period") renderPeriod();
     setSyncStatus("synced");
   } catch { setSyncStatus("error"); }
 }
@@ -3337,6 +3501,7 @@ async function cloudPush() {
     { key: "weight_logs",  value: weightLogs },
     { key: "person_names", value: personNames },
     { key: "poop_logs",    value: poopLogs },
+    { key: "period_logs",  value: periodLogs },
   ];
   try {
     for (const p of pairs) {
@@ -3359,6 +3524,7 @@ function subscribeRealtime() {
       if (key === "fitness_goals") { fitnessGoals = loadFitnessGoals(); if (currentMode === "fitness") renderFitness(); }
       if (key === "weight_logs")   { weightLogs   = loadWeightLogs();   if (currentMode === "fitness") renderFitness(); }
       if (key === "poop_logs")     { poopLogs     = loadPoopLogs();     if (currentMode === "poop")    renderPoop(); }
+      if (key === "period_logs")   { periodLogs   = loadPeriodLogs();   if (currentMode === "period")  renderPeriod(); }
       if (key === "person_names")  {
         personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
         document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
@@ -3432,6 +3598,7 @@ document.getElementById("cloud-push-btn").addEventListener("click", async () => 
 // ===================== INIT =====================
 personNames = JSON.parse(localStorage.getItem("person_names") || '["我","TA"]');
 document.querySelectorAll(".tab-name-input").forEach((inp, i) => inp.value = personNames[i]);
+updatePeriodTabVisibility();
 initAIPanel();
 updateLibTabCount();
 // sync diary macro-goal bars from saved fitness goals

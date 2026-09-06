@@ -1,0 +1,29 @@
+{
+  "name": "diet-tracker",
+  "version": "0.1.0",
+  "description": "Log meals and review nutrition data with the Diet Tracker MCP server.",
+  "author": {
+    "name": "Renxiang Ch",
+    "url": "https://github.com/renxiang-ch"
+  },
+  "homepage": "https://renxiang-ch.github.io/diet-tracker/",
+  "repository": "https://github.com/renxiang-ch/diet-tracker",
+  "keywords": ["diet", "nutrition", "meal-log", "health"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Diet Tracker",
+    "shortDescription": "Log meals and track nutrition from chat.",
+    "longDescription": "Connect ChatGPT or Codex to Diet Tracker to record meals, reuse saved nutrition facts, review daily and weekly totals, and maintain related health logs.",
+    "developerName": "Renxiang Ch",
+    "category": "Health",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://renxiang-ch.github.io/diet-tracker/",
+    "defaultPrompt": [
+      "Record what I ate today.",
+      "Show today's nutrition totals.",
+      "Summarize my meals from the last seven days."
+    ],
+    "brandColor": "#16A34A"
+  },
+  "mcpServers": "./.mcp.json"
+}

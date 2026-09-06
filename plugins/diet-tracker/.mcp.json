@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "diet-tracker": {
+      "type": "http",
+      "url": "https://diet-tracker-mcp.renxiangchao2678.workers.dev/mcp"
+    }
+  }
+}

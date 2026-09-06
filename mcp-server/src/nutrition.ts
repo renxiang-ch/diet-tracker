@@ -53,13 +53,32 @@ export function defaultPersonDay(): PersonDay {
   };
 }
 
-// Workers 跑在 UTC，这里用东八区计算“今天”，对齐网页 todayStr() 的本地时间语义
-export function todayInShanghai(): string {
+// MCP 同时服务两位身处不同时区的使用者。缺省日期/时间必须按记录所属的人计算，
+// 不能使用 Worker 的 UTC 时间，也不能统一写死为某一个时区。
+export const PERSON_TIME_ZONES = {
+  0: "America/Chicago",
+  1: "Asia/Shanghai",
+} as const;
+
+export function timeZoneForPerson(person: number): string {
+  return PERSON_TIME_ZONES[person as keyof typeof PERSON_TIME_ZONES] ?? PERSON_TIME_ZONES[0];
+}
+
+export function todayForPerson(person: number): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
+    timeZone: timeZoneForPerson(person),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+  }).format(new Date());
+}
+
+export function currentTimeForPerson(person: number): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: timeZoneForPerson(person),
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   }).format(new Date());
 }
 
