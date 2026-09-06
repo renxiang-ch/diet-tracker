@@ -40,7 +40,7 @@ Enable `kv_store` under **Database → Publications → supabase_realtime** for 
 
 The repository includes a remote MCP server under [`mcp-server/`](./mcp-server/) and a repository-marketplace plugin package under [`plugins/diet-tracker/`](./plugins/diet-tracker/).
 
-The current hosted MCP deployment is a private, single-owner service. It uses one shared password and one shared Supabase dataset. Do not publish that endpoint for general public use yet. See [`PUBLIC_RELEASE.md`](./PUBLIC_RELEASE.md) for the required multi-user authentication, data-isolation, privacy, and submission work.
+The current hosted MCP deployment is a private, single-owner service. It uses one shared password and one shared Supabase dataset. Do not publish that endpoint for general public use yet. See [`PUBLIC_RELEASE.md`](./PUBLIC_RELEASE.md) for the release checklist or [`PUBLIC_RELEASE.zh-CN.md`](./PUBLIC_RELEASE.zh-CN.md) for the complete Chinese guide.
 
 ---
 
